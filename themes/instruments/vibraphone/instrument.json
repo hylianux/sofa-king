@@ -1,0 +1,24 @@
+{
+  "name": "Vibraphone",
+  "description": "A vibraphone, with its shimmer.",
+  "author": "FluidR3 GM (Frank Wen), via MIDI.js Soundfonts",
+  "order": 34,
+  "license": "CC-BY-3.0",
+  "ring": 1.6,
+  "volume": 1.3,
+  "notes": {
+    "C2": "C2.ogg",
+    "Gb2": "Gb2.ogg",
+    "C3": "C3.ogg",
+    "Gb3": "Gb3.ogg",
+    "C4": "C4.ogg",
+    "Gb4": "Gb4.ogg",
+    "C5": "C5.ogg",
+    "Gb5": "Gb5.ogg",
+    "C6": "C6.ogg",
+    "Gb6": "Gb6.ogg",
+    "C7": "C7.ogg",
+    "Gb7": "Gb7.ogg",
+    "C8": "C8.ogg"
+  }
+}

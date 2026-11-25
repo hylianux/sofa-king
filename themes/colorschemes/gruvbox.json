@@ -1,0 +1,25 @@
+{
+  "name": "Gruvbox",
+  "description": "Warm retro browns with orange and yellow highlights.",
+  "author": "SOFA King",
+  "order": 4,
+  "colors": {
+    "bg": "#282828",
+    "surface": "#32302f",
+    "surface2": "#3c3836",
+    "line": "#504945",
+    "text": "#fbf1c7",
+    "textSoft": "#ebdbb2",
+    "muted": "#bdae93",
+    "faint": "#928374",
+    "focus": "#fabd2f",
+    "onFocus": "#282828",
+    "onFocusSoft": "#504945",
+    "accent": "#83a598",
+    "gold": "#fabd2f",
+    "good": "#b8bb26",
+    "bad": "#fb4934",
+    "glow1": "#3c2f1e",
+    "glow2": "#1f3330"
+  }
+}

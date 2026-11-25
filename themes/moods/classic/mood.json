@@ -1,0 +1,14 @@
+{
+  "name": "Classic",
+  "description": "The original look: midnight colours, a clean font and soft clicks.",
+  "author": "SOFA King",
+  "order": 1,
+  "colors": "midnight",
+  "fonts": {
+    "display": "clean",
+    "text": "clean"
+  },
+  "sounds": "classic",
+  "effects": [],
+  "background": ""
+}

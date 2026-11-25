@@ -1,0 +1,16 @@
+{
+  "name": "Autumn",
+  "description": "Warm browns and golds, an elegant serif, soft clicks and falling leaves.",
+  "author": "SOFA King",
+  "order": 12,
+  "colors": "gruvbox",
+  "fonts": {
+    "display": "playfair-display",
+    "text": "nunito"
+  },
+  "sounds": "soft",
+  "effects": [
+    "leaves"
+  ],
+  "background": ""
+}

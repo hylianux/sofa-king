@@ -1,0 +1,12 @@
+{
+  "name": "Mountains of Christmas",
+  "description": "Whimsical holiday lettering.",
+  "order": 12,
+  "family": "Mountains of Christmas",
+  "files": {
+    "400": "mountains-of-christmas-400.woff2",
+    "700": "mountains-of-christmas-700.woff2"
+  },
+  "scale": 110,
+  "license": "Apache-2.0"
+}

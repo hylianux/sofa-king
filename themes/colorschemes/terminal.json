@@ -1,0 +1,25 @@
+{
+  "name": "Terminal",
+  "description": "Black screen, neon green text and a magenta glow.",
+  "author": "SOFA King",
+  "order": 20,
+  "colors": {
+    "bg": "#05070a",
+    "surface": "#0b1118",
+    "surface2": "#121c26",
+    "line": "#1f3a2c",
+    "text": "#c8ffd4",
+    "textSoft": "#a6e8b6",
+    "muted": "#6fb585",
+    "faint": "#43785a",
+    "focus": "#39ff88",
+    "onFocus": "#001a0a",
+    "onFocusSoft": "#0d5a2c",
+    "accent": "#39ff88",
+    "gold": "#ffe14d",
+    "good": "#39ff88",
+    "bad": "#ff3d6e",
+    "glow1": "#3a0a5a",
+    "glow2": "#003a2a"
+  }
+}

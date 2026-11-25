@@ -1,0 +1,16 @@
+{
+  "name": "Glam",
+  "description": "Bubblegum pink and lilac, a retro brush script and sparkly harp runs.",
+  "author": "SOFA King",
+  "order": 11,
+  "colors": "bubblegum",
+  "fonts": {
+    "display": "pacifico",
+    "text": "quicksand"
+  },
+  "sounds": "sparkle",
+  "effects": [
+    "sparkles"
+  ],
+  "background": ""
+}

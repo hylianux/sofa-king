@@ -1,0 +1,16 @@
+{
+  "name": "Party",
+  "description": "Bright colours flowing behind everything, confetti, and cartoon boings and zaps.",
+  "author": "SOFA King",
+  "order": 19,
+  "colors": "playtime",
+  "fonts": {
+    "display": "fredoka",
+    "text": "fredoka"
+  },
+  "sounds": "cartoon",
+  "effects": [
+    "confetti"
+  ],
+  "background": "flowing-gradient"
+}

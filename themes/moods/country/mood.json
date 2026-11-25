@@ -1,0 +1,14 @@
+{
+  "name": "Country",
+  "description": "Barnwood and copper, Wild West lettering and twangy banjo plucks.",
+  "author": "SOFA King",
+  "order": 8,
+  "colors": "barnwood",
+  "fonts": {
+    "display": "rye",
+    "text": "clean"
+  },
+  "sounds": "twang",
+  "effects": [],
+  "background": ""
+}

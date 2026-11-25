@@ -1,0 +1,9 @@
+{
+  "name": "My instrument",
+  "description": "One sentence about how it sounds.",
+  "author": "Who recorded it",
+  "license": "CC-BY-3.0",
+  "ring": 1.2,
+  "volume": 1,
+  "notes": { "C4": "C4.ogg", "C5": "C5.ogg" }
+}

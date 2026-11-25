@@ -1,0 +1,25 @@
+{
+  "name": "Pumpkin",
+  "description": "Midnight purple and jack-o'-lantern orange.",
+  "author": "SOFA King",
+  "order": 16,
+  "colors": {
+    "bg": "#120a1a",
+    "surface": "#1e1229",
+    "surface2": "#2a1a38",
+    "line": "#46305c",
+    "text": "#fff3e6",
+    "textSoft": "#ecd8c4",
+    "muted": "#b69bc4",
+    "faint": "#7f6a8e",
+    "focus": "#ff8c2a",
+    "onFocus": "#1a0e05",
+    "onFocusSoft": "#6a3a10",
+    "accent": "#ff7a1a",
+    "gold": "#ffd23f",
+    "good": "#9be15d",
+    "bad": "#ff4d4d",
+    "glow1": "#4a1d6b",
+    "glow2": "#5a2a06"
+  }
+}

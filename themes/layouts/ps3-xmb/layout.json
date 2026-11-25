@@ -1,0 +1,14 @@
+{
+  "name": "PS3 cross bar",
+  "description": "The PS3 \"XMB\": sections across the top, titles listed down. Left and right change section.",
+  "author": "SOFA King",
+  "order": 6,
+  "colors": "cross-bar",
+  "behavior": {
+    "featured": true,
+    "rowKeys": "left-right",
+    "oneRowAtATime": true,
+    "sectionBar": true,
+    "widenSelected": true
+  }
+}

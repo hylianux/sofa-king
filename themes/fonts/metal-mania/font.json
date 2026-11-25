@@ -1,0 +1,10 @@
+{
+  "name": "Metal Mania",
+  "description": "Spiky heavy-metal band logo.",
+  "order": 13,
+  "family": "Metal Mania",
+  "files": {
+    "400": "metal-mania-400.woff2"
+  },
+  "license": "OFL-1.1"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Christmas",
+  "description": "Pine green and berry red, festive lettering, sleigh bells and falling snow.",
+  "author": "SOFA King",
+  "order": 6,
+  "colors": "evergreen",
+  "fonts": {
+    "display": "mountains-of-christmas",
+    "text": "nunito"
+  },
+  "sounds": "sleigh-bells",
+  "effects": [
+    "snow"
+  ],
+  "background": ""
+}

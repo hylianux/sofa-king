@@ -1,0 +1,25 @@
+{
+  "name": "Evergreen",
+  "description": "Pine green, berry red and snow white.",
+  "author": "SOFA King",
+  "order": 17,
+  "colors": {
+    "bg": "#0c1f17",
+    "surface": "#133024",
+    "surface2": "#1a3d2e",
+    "line": "#2c5a45",
+    "text": "#f4efe3",
+    "textSoft": "#dcd6c6",
+    "muted": "#a9b9a6",
+    "faint": "#748a77",
+    "focus": "#f4efe3",
+    "onFocus": "#0c1f17",
+    "onFocusSoft": "#3a5a48",
+    "accent": "#e23b3b",
+    "gold": "#f2c14e",
+    "good": "#7bd389",
+    "bad": "#ff5c5c",
+    "glow1": "#4a0f14",
+    "glow2": "#0f3b28"
+  }
+}

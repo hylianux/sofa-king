@@ -1,0 +1,11 @@
+{
+  "name": "Nunito",
+  "description": "Friendly and rounded.",
+  "order": 3,
+  "family": "Nunito",
+  "files": {
+    "400": "nunito-400.woff2",
+    "700": "nunito-700.woff2"
+  },
+  "license": "OFL-1.1"
+}

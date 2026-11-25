@@ -1,0 +1,11 @@
+{
+  "name": "Rye",
+  "description": "Wild West wanted-poster lettering.",
+  "order": 14,
+  "family": "Rye",
+  "files": {
+    "400": "rye-400.woff2"
+  },
+  "scale": 90,
+  "license": "OFL-1.1"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "Soft focus",
+  "description": "Out-of-focus lights drifting about, pastel colours and gentle marimba.",
+  "author": "SOFA King",
+  "order": 17,
+  "colors": "catppuccin",
+  "fonts": {
+    "display": "nunito",
+    "text": "nunito"
+  },
+  "sounds": "soft",
+  "instrument": "vibraphone",
+  "effects": [],
+  "background": "blurry-lights",
+  "soundFx": [
+    "chorus"
+  ]
+}

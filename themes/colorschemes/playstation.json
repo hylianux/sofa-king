@@ -1,0 +1,25 @@
+{
+  "name": "PlayStation",
+  "description": "The PS5 home screen's deep blue-black with a crisp white highlight.",
+  "author": "SOFA King",
+  "order": 10,
+  "colors": {
+    "bg": "#05070f",
+    "surface": "#10162a",
+    "surface2": "#18213d",
+    "line": "#2b3a66",
+    "text": "#ffffff",
+    "textSoft": "#cfd8f0",
+    "muted": "#97a3c4",
+    "faint": "#66729a",
+    "focus": "#ffffff",
+    "onFocus": "#05070f",
+    "onFocusSoft": "#3b4566",
+    "accent": "#4a8fff",
+    "gold": "#ffd166",
+    "good": "#3ddc97",
+    "bad": "#ff6b81",
+    "glow1": "#0d2a6b",
+    "glow2": "#081a3d"
+  }
+}

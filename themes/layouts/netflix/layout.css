@@ -1,0 +1,72 @@
+/* Big view (Netflix-style). The selected card turns into a wide capsule at the front of its row,
+   and the panel above it (#hero) shows the title, score, overview and where to watch it.
+
+   Every rule starts with body.layout-netflix, so it only applies while this layout is chosen. */
+
+/* Search moves to a magnifier at the top, to make room for the big panel */
+body.layout-netflix .hero-search { display: grid; }
+body.layout-netflix #view-home .searchbar { display: none; }
+
+/* The big panel: full width, its picture fading in from the right */
+body.layout-netflix .hero {
+  display: block;
+  position: relative;
+  flex: none;
+  height: 15.5rem;
+  margin: -0.5rem -5rem 1.2rem;
+  padding: 0 5rem;
+  overflow: hidden;
+}
+
+body.layout-netflix .row-cards { position: relative; scroll-behavior: auto; }
+
+body.layout-netflix .row-cards .card,
+body.layout-netflix .row-end { width: 7.2rem; }
+
+/* widenSelected: the selected card is .wide, and shows the wide picture */
+body.layout-netflix .row-cards .card.wide { width: 19.2rem; }
+
+body.layout-netflix .row-cards .card.wide .poster { aspect-ratio: 16 / 9; }
+
+/* Names get two lines (always two lines' room, so every card is the same height). */
+body.layout-netflix .row-cards .card .name { font-size: 0.85rem; -webkit-line-clamp: 2; height: 2.5em; }
+
+body.layout-netflix .row-cards .card .sub { font-size: 0.75rem; }
+
+body.layout-netflix .row { margin-bottom: 1.1rem; }
+
+body.layout-netflix .row h2 { margin-bottom: 0.5rem; }
+
+/* The panel always fits what's in it: the title on one line, the overview on two, and the
+   where-to-watch chips on one line (fading out if there are more than fit). */
+body.layout-netflix .hero { height: auto; min-height: 0; padding-bottom: 0.4rem; }
+/* The panel never changes size, whatever the title: every line is a fixed height, and anything
+   longer is cut short with "…" (the title's page has it all). */
+body.layout-netflix .hero-overview { height: 2.9em; min-height: 0; overflow: hidden; }
+body.layout-netflix .hero-row,
+body.layout-netflix .hero-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-wrap: nowrap; }
+body.layout-netflix .hero-meta > span { flex: none; }
+body.layout-netflix .hero-meta { height: 1.4rem; line-height: 1.4rem; }
+body.layout-netflix .hero-row { height: 1.2em; }
+body.layout-netflix .hero-chips { height: 1.9rem; }
+body.layout-netflix .hero-text h2 { -webkit-line-clamp: 1; }
+body.layout-netflix .hero-overview { -webkit-line-clamp: 2; }
+body.layout-netflix .hero-chips {
+  flex-wrap: nowrap; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent);
+}
+body.layout-netflix .hero-chips span { flex: none; }
+
+/* One whole row at a time (oneRowAtATime), so nothing is ever cut off; the rows above and below
+   are named at the edges. A little room above the row, so the selected card's ring never covers
+   the row's name. */
+body.layout-netflix .row:not(.active) { display: none; }
+body.layout-netflix .rows { padding-top: 0.4rem; }
+body.layout-netflix .row h2 { margin-bottom: 0.9rem; }
+
+/* The row's name shows once, above its row (not again at the top of the panel). */
+body.layout-netflix #hero-row { display: none; }
+
+/* One row at a time: the rows never scroll (overflow: clip can't be scrolled, even by selecting a
+   card), so the row's name above its cards always shows. */
+body.layout-netflix #rows { overflow: clip; }

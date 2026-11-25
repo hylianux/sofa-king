@@ -1,0 +1,15 @@
+/* Falling leaves: two layers of leaf shapes, each sliding whole tiles so the loop is seamless. */
+.fx-leaves::before, .fx-leaves::after {
+  content: ''; position: absolute; top: -400px; left: -400px; right: 0; bottom: 0; will-change: transform;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><g fill-opacity='.55'><path d='M60 80c14-16 34-14 40 0-14 14-30 14-40 0z' fill='%23d9822b' transform='rotate(25 80 80)'/><path d='M260 230c12-14 30-12 35 0-12 12-26 12-35 0z' fill='%23b5462a' transform='rotate(-35 277 230)'/><path d='M330 40c10-12 25-10 29 0-10 10-21 10-29 0z' fill='%23e0b03a' transform='rotate(60 345 40)'/></g></svg>");
+  background-size: 400px 400px;
+  animation: fx-leaves-a 30s linear infinite;
+}
+.fx-leaves::after {
+  top: -600px; left: 0; right: -600px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><g fill-opacity='.7'><path d='M120 300c20-24 50-20 58 0-20 20-44 20-58 0z' fill='%23c2562b' transform='rotate(-20 150 300)'/><path d='M450 120c18-20 44-17 50 0-17 17-38 17-50 0z' fill='%23d9822b' transform='rotate(40 475 120)'/></g></svg>");
+  background-size: 600px 600px;
+  animation: fx-leaves-b 24s linear infinite;
+}
+@keyframes fx-leaves-a { to { transform: translate(400px, 400px); } }
+@keyframes fx-leaves-b { to { transform: translate(-600px, 600px); } }

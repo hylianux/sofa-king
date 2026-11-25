@@ -1,0 +1,25 @@
+{
+  "name": "My colours",
+  "description": "One sentence about the scheme.",
+  "author": "Your name",
+  "order": 50,
+  "colors": {
+    "bg": "#282a36",
+    "surface": "#343746",
+    "surface2": "#414558",
+    "line": "#565a70",
+    "text": "#f8f8f2",
+    "textSoft": "#d6d6e0",
+    "muted": "#a2a7c4",
+    "faint": "#6272a4",
+    "focus": "#bd93f9",
+    "onFocus": "#1e1f29",
+    "onFocusSoft": "#3b2f5a",
+    "accent": "#ff79c6",
+    "gold": "#f1fa8c",
+    "good": "#50fa7b",
+    "bad": "#ff5555",
+    "glow1": "#3b2a52",
+    "glow2": "#1f3242"
+  }
+}

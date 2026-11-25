@@ -1,0 +1,13 @@
+{
+  "name": "My mood",
+  "description": "One sentence about the feel.",
+  "author": "Your name",
+  "order": 50,
+  "colors": "midnight",
+  "accent": "#ff5c8a",
+  "fonts": { "display": "creepster", "text": "nunito" },
+  "sounds": "haunted",
+  "instrument": "",
+  "effects": ["mist", "film-grain"],
+  "background": "aurora"
+}

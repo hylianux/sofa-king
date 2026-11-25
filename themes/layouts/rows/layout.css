@@ -1,0 +1,15 @@
+/* Rows: the starting point every layout builds on, so it needs no CSS of its own.
+   (The styles for it are the defaults in ui/home.css.)
+
+   Every rule starts with body.layout-rows, so it only applies while this layout is chosen. */
+
+
+/* Two whole rows on screen (rowsPerScreen: 2). To give them room: search is the magnifier at the
+   top, and every title gets exactly two lines for its name, so all rows are the same height. */
+body.layout-rows #view-home .searchbar { display: none; }
+body.layout-rows .hero-search { display: grid; }
+body.layout-rows .row h2 { margin-bottom: 0.5rem; }
+body.layout-rows .row-cards .card .name { -webkit-line-clamp: 2; }
+body.layout-rows .row-cards .card .sub { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+body.layout-rows .row { margin-bottom: 0.9rem; }
+body.layout-rows .top h1 { font-size: 2.2rem; }

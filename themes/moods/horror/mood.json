@@ -1,0 +1,17 @@
+{
+  "name": "Horror",
+  "description": "Fog and rust, an old typewriter, film grain and PS1-style menu beeps.",
+  "author": "SOFA King",
+  "order": 4,
+  "colors": "fog",
+  "fonts": {
+    "display": "special-elite",
+    "text": "clean"
+  },
+  "sounds": "foggy-town",
+  "effects": [
+    "film-grain",
+    "dark-corners"
+  ],
+  "background": ""
+}

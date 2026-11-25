@@ -1,0 +1,18 @@
+{
+  "name": "Summer night",
+  "description": "A warm purple dusk, fireflies blinking and soft marimba notes.",
+  "author": "SOFA King",
+  "order": 18,
+  "colors": "dracula",
+  "accent": "#ffd23f",
+  "fonts": {
+    "display": "dancing-script",
+    "text": "nunito"
+  },
+  "sounds": "soft",
+  "instrument": "kalimba",
+  "effects": [
+    "fireflies"
+  ],
+  "background": ""
+}

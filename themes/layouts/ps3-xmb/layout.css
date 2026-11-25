@@ -1,0 +1,102 @@
+/* PS3 cross bar (XMB): the row names across the top (sectionBar: true), the current row as a
+   list going down, details on the right, and the slow wave in the background.
+
+   Every rule starts with body.layout-ps3-xmb, so it only applies while this layout is chosen. */
+
+body.layout-ps3-xmb #view-home .searchbar { display: none; }
+
+body.layout-ps3-xmb .hero-search { display: grid; }
+
+/* oneRowAtATime marks the current row .active: hide the rest */
+body.layout-ps3-xmb .row:not(.active) { display: none; }
+
+body.layout-ps3-xmb .hero { display: block; position: static; height: auto; margin: 1.6rem 0 0; padding: 0; overflow: visible; }
+
+body.layout-ps3-xmb .hero-art {
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 95%); mask-image: linear-gradient(180deg, #000 30%, transparent 95%);
+}
+
+body.layout-ps3-xmb #screen-home > * { position: relative; z-index: 1; }
+
+body.layout-ps3-xmb #view-home { display: grid; grid-template-columns: 30rem minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 3rem; }
+
+body.layout-ps3-xmb .xmb-bar { display: flex; grid-column: 1 / -1; gap: 2.4rem; align-items: flex-end; margin: 0 0 1.2rem; overflow: hidden; white-space: nowrap; }
+
+body.layout-ps3-xmb .rows { grid-column: 1; grid-row: 2; margin: 0; padding: 0; }
+
+body.layout-ps3-xmb .hero { grid-column: 2; grid-row: 2; margin: 0; }
+
+body.layout-ps3-xmb .row { margin: 0; height: 100%; }
+
+body.layout-ps3-xmb .row h2 { display: none; }
+
+body.layout-ps3-xmb .row-cards { flex-direction: column; overflow-x: visible; overflow-y: auto; height: 100%; gap: 0.35rem; padding: 0.6rem; margin: -0.6rem; }
+
+/* Each title as a line in a list: picture on the left, name and details beside it */
+body.layout-ps3-xmb .row-cards .card {
+  width: 100%; padding: 0.35rem 0.6rem; border-radius: 12px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  align-content: center; column-gap: 1rem; row-gap: 0.15rem;
+}
+
+body.layout-ps3-xmb .row-cards .card .poster { width: 3.2rem; flex: none; border-radius: 8px; font-size: 0; padding: 0; }
+
+body.layout-ps3-xmb .row-cards .card:focus { background: rgba(var(--ink), 0.1); }
+
+body.layout-ps3-xmb .row-cards .card:focus .poster { width: 4rem; transform: none; box-shadow: none; }
+
+body.layout-ps3-xmb .row-cards .card:focus .name { font-size: 1.1rem; }
+
+/* More is the last line of the list, drawn like a title: an arrow where the picture would be,
+   and "More" as its name. */
+body.layout-ps3-xmb .row-end { width: 100%; aspect-ratio: auto; height: auto; align-self: stretch; }
+body.layout-ps3-xmb .row-end button {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; justify-items: start; column-gap: 1rem;
+  width: 100%; padding: 0.35rem 0.6rem; border-radius: 12px; background: none; box-shadow: none; color: var(--text);
+  transform: none;
+}
+body.layout-ps3-xmb .row-end svg {
+  box-sizing: border-box; width: 3.2rem; height: auto; aspect-ratio: 2 / 3; padding: 0.9rem 0.7rem; border-radius: 8px;
+  background: var(--bg-raised); box-shadow: inset 0 0 0 1px rgba(var(--ink), 0.12); color: var(--muted);
+  transition: width 150ms ease-out;
+}
+body.layout-ps3-xmb .row-end .tip { font-size: 1rem; font-weight: 600; transition: font-size 150ms ease-out; }
+body.layout-ps3-xmb .row-end button:focus { background: rgba(var(--ink), 0.1); color: var(--text); transform: none; }
+body.layout-ps3-xmb .row-end button:focus svg { width: 4rem; color: var(--text); }
+body.layout-ps3-xmb .row-end button:focus .tip { font-size: 1.1rem; }
+
+
+body.layout-ps3-xmb .hero-art.shown { opacity: 0.3; }
+
+/* The slow wave behind everything, in the scheme's accent colour */
+body.layout-ps3-xmb #screen-home::before {
+  content: ''; position: fixed; left: -10%; right: -10%; top: 48%; height: 40%; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(var(--accent-rgb), 0.16), transparent 60%);
+  animation: xmb-wave 14s ease-in-out infinite alternate;
+}
+
+@keyframes xmb-wave { from { transform: translateY(-6%) scaleY(0.8) skewY(-2deg); } to { transform: translateY(6%) scaleY(1.1) skewY(2deg); } }
+
+body.layout-ps3-xmb .hero-row { display: none; }
+
+body.layout-ps3-xmb .row-cards .card .poster { grid-row: 1 / 3; }
+
+body.layout-ps3-xmb .row-cards .card .name { align-self: end; -webkit-line-clamp: 1; }
+
+body.layout-ps3-xmb .row-cards .card .sub { align-self: start; }
+
+/* widenSelected: the selected title turns into its wide picture */
+body.layout-ps3-xmb .row-cards .card.wide .poster { width: 10rem; aspect-ratio: 16 / 9; }
+body.layout-ps3-xmb .row-cards .card.wide:focus .poster { width: 10rem; }
+
+/* One row at a time: the rows never scroll (overflow: clip can't be scrolled, even by selecting a
+   card), so the row's name above its cards always shows. */
+body.layout-ps3-xmb #rows { overflow: clip; }
+
+/* The selected title grows smoothly, and the list glides (see home.js: the selected title stays a
+   third of the way down). */
+body.layout-ps3-xmb .row-cards { scroll-behavior: auto; }
+body.layout-ps3-xmb .row-cards .card { transition: background-color 160ms ease; }
+body.layout-ps3-xmb .row-cards .card .poster { transition: width 150ms ease-out; }
+body.layout-ps3-xmb .row-cards .card .name { transition: font-size 150ms ease-out; }

@@ -1,0 +1,13 @@
+/* Big posters: the larger card sizes (bigCards: true), plus a little extra width here.
+
+   Every rule starts with body.layout-big-posters, so it only applies while this layout is chosen. */
+
+/* As big as fits: the whole row (title, poster, name and details) always fits on screen, and
+   rowScroll: "start" brings each row to the top as you reach it. */
+body.layout-big-posters .row-cards .card,
+body.layout-big-posters .row-end { width: 11.5rem; }
+
+body.layout-big-posters .rows { scroll-snap-type: y proximity; }
+body.layout-big-posters .row { scroll-snap-align: start; padding-bottom: 0.4rem; }
+body.layout-big-posters .row-cards .card .name { -webkit-line-clamp: 2; min-height: 2.5em; }
+body.layout-big-posters .row-cards .card .sub { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }

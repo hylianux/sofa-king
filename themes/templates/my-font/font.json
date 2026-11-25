@@ -1,0 +1,12 @@
+{
+  "name": "My font",
+  "description": "One sentence about it.",
+  "order": 50,
+  "family": "My Font",
+  "files": {
+    "400": "my-font-regular.woff2",
+    "700": "my-font-bold.woff2"
+  },
+  "scale": 100,
+  "license": "OFL-1.1"
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:">
+  <title>Menu</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <!-- Menu: opened with View / F10 -->
+  <section id="menu" hidden>
+    <div class="panel">
+      <div>
+        <p class="eyebrow" id="eyebrow">Now watching</p>
+        <h1 id="title">Menu</h1>
+      </div>
+
+      <div class="cols">
+        <div class="col">
+          <div class="actions">
+            <button class="item" data-nav data-action="resume" id="resume">Resume</button>
+            <button class="item accent" data-nav data-action="grab-key" id="grab-key" hidden>Use the key on this page</button>
+            <button class="item" data-nav data-action="home" id="home">Back to home</button>
+            <button class="item" data-nav data-action="reload" id="reload">Reload page</button>
+            <button class="item" data-nav data-action="settings" id="settings">Settings</button>
+          </div>
+          <p class="notice" id="notice" hidden></p>
+        </div>
+
+      </div>
+
+      <!-- Last thing in the menu, set apart so it's never pressed by accident -->
+      <div class="quit-area">
+        <button class="item quit" data-nav data-action="quit" id="quit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M6.4 6.6a8 8 0 1 0 11.2 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          Quit SOFA King
+        </button>
+      </div>
+    </div>
+
+    <!-- "Are you sure?" for quitting the whole program -->
+    <div class="confirm" id="confirm-quit" hidden>
+      <div class="confirm-box" role="alertdialog" aria-labelledby="cq-title" aria-describedby="cq-text">
+        <h2 id="cq-title">Quit SOFA King?</h2>
+        <p id="cq-text">Are you sure? You will be quitting out of the entire program, not just the streaming service you're in.</p>
+        <div class="confirm-actions">
+          <button class="item" data-nav data-action="quit-cancel" id="cq-cancel">No, keep going</button>
+          <button class="item quit" data-nav data-action="quit-confirmed" id="cq-quit">Yes, quit the app</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Keyboard: slides up over a website when a text field is selected -->
+  <section id="kb" hidden>
+    <div class="sheet">
+      <div class="kb-main">
+        <div class="kb-head">
+          <span class="eyebrow">Typing into</span>
+          <span class="kb-label" id="kb-label">Text</span>
+        </div>
+        <div class="kb-preview" id="kb-preview"><span id="kb-text"></span><span class="caret"></span></div>
+        <div class="kb-rows" id="kb-rows"></div>
+        <div class="hints compact">
+          <span><kbd data-bind="ok"></kbd>Type</span>
+          <span><kbd data-bind="delete"></kbd>Delete</span>
+          <span><kbd data-bind="playpause"></kbd>Space</span>
+          <span><kbd data-bind="rclick"></kbd><kbd data-bind="lclick"></kbd>Shift · both: caps lock</span>
+          <span><kbd data-bind="menu"></kbd>Done</span>
+          <span><kbd data-bind="back"></kbd>Cancel</span>
+        </div>
+      </div>
+      <aside class="kb-phone" id="kb-phone" hidden>
+        <div class="qr" id="kb-qr"></div>
+        <p class="kb-phone-title">Type on your phone</p>
+        <p class="kb-phone-help">Scan with your camera. Phone and TV need the same Wi-Fi.</p>
+        <p class="kb-phone-addr" id="kb-addr"></p>
+        <p class="kb-trouble" id="kb-trouble" hidden>Not connecting? Settings → <em>Paste it from my phone</em> can fix it.</p>
+      </aside>
+    </div>
+  </section>
+
+  <script src="bindings.js"></script>
+  <script src="sounds.js"></script>
+  <script src="nav.js"></script>
+  <script src="keyboard.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

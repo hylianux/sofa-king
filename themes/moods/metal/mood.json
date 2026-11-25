@@ -1,0 +1,16 @@
+{
+  "name": "Heavy metal",
+  "description": "Black steel and fire, spiky band-logo letters and distorted power chords.",
+  "author": "SOFA King",
+  "order": 7,
+  "colors": "steel",
+  "fonts": {
+    "display": "metal-mania",
+    "text": "clean"
+  },
+  "sounds": "distortion",
+  "effects": [
+    "embers"
+  ],
+  "background": ""
+}

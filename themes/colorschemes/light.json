@@ -1,0 +1,26 @@
+{
+  "name": "Light",
+  "description": "White and pale grey with dark text, for bright rooms.",
+  "author": "SOFA King",
+  "order": 7,
+  "light": true,
+  "colors": {
+    "bg": "#f4f3f0",
+    "surface": "#ffffff",
+    "surface2": "#e6e4df",
+    "line": "#cfccc5",
+    "text": "#1b1a20",
+    "textSoft": "#3c3a44",
+    "muted": "#66636e",
+    "faint": "#8c8994",
+    "focus": "#1b1a20",
+    "onFocus": "#ffffff",
+    "onFocusSoft": "#d6d4dc",
+    "accent": "#1667c7",
+    "gold": "#a86a00",
+    "good": "#1a8a4a",
+    "bad": "#c62828",
+    "glow1": "#ece4f6",
+    "glow2": "#e0edf5"
+  }
+}

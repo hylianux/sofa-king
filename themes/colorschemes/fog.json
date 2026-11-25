@@ -1,0 +1,25 @@
+{
+  "name": "Fog & rust",
+  "description": "Washed-out grey-green fog with rust-red highlights.",
+  "author": "SOFA King",
+  "order": 15,
+  "colors": {
+    "bg": "#141513",
+    "surface": "#1f201d",
+    "surface2": "#2a2b27",
+    "line": "#3d3e38",
+    "text": "#d9d6cc",
+    "textSoft": "#bdbab0",
+    "muted": "#8e8b82",
+    "faint": "#66645d",
+    "focus": "#d9d6cc",
+    "onFocus": "#141513",
+    "onFocusSoft": "#4a4944",
+    "accent": "#b8432f",
+    "gold": "#c9a45a",
+    "good": "#7e9c6b",
+    "bad": "#c23b2b",
+    "glow1": "#2b2622",
+    "glow2": "#232823"
+  }
+}

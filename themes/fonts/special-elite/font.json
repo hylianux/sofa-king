@@ -1,0 +1,10 @@
+{
+  "name": "Special Elite",
+  "description": "A worn old typewriter.",
+  "order": 8,
+  "family": "Special Elite",
+  "files": {
+    "400": "special-elite-400.woff2"
+  },
+  "license": "Apache-2.0"
+}

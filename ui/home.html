@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: http: jfimg:">
+  <title>Home</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="home.css">
+  <style id="layout-css"></style>
+  <style id="effects-css"></style>
+  <style id="fit-css"></style>
+</head>
+<body>
+  <!-- The moving background (Settings → Look → Background), behind every screen -->
+  <div id="bg-layer" aria-hidden="true"></div>
+  <!-- Home: search bar + rows of things to watch from TMDB -->
+  <section class="screen" id="screen-home">
+    <header class="top" data-row>
+      <div class="top-left">
+        <h1 id="greeting">Good evening</h1>
+        <nav class="tabs" id="tabs">
+          <kbd class="tab-key" data-bind="scrollup"></kbd>
+          <button class="tab chosen" data-nav data-view="home">Home</button>
+          <button class="tab" data-nav data-view="live">Live</button>
+          <button class="tab" data-nav data-view="music">Music</button>
+          <button class="tab" data-nav data-view="genres">Genres</button>
+          <button class="tab" data-nav data-view="library">Library</button>
+          <kbd class="tab-key" data-bind="scrolldown"></kbd>
+        </nav>
+      </div>
+      <div class="top-right">
+        <div id="clock"></div>
+        <button class="icon-btn hero-search" data-nav id="hero-search" aria-label="Search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+        </button>
+        <button class="icon-btn" data-nav id="open-settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- View 1: search bar + rows of things to watch -->
+    <main class="home-main view" id="view-home">
+      <button class="searchbar" data-nav id="open-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+        Search movies, shows and people
+      </button>
+
+      <!-- PS3 cross bar: the sections, across -->
+      <div class="xmb-bar" id="xmb-bar"></div>
+
+      <!-- Big view: whatever's selected below, large, with what it is and where to watch it -->
+      <section class="hero" id="hero" aria-live="polite">
+        <img class="hero-art" id="hero-art" alt="">
+        <div class="hero-text">
+          <p class="eyebrow" id="hero-row"></p>
+          <h2 id="hero-title"></h2>
+          <p class="hero-meta" id="hero-meta"></p>
+          <p class="hero-overview" id="hero-overview"></p>
+          <div class="hero-chips" id="hero-chips"></div>
+        </div>
+      </section>
+
+      <!-- More rows above / below what's on screen (any layout): just outside the rows -->
+      <div class="row-hint up" id="row-hint-up"><span></span></div>
+      <div class="rows" id="rows"></div>
+      <div class="row-hint down" id="row-hint-down"><span></span></div>
+
+      <div class="home-empty" id="home-empty" hidden>
+        <h2>Find something to watch</h2>
+        <p id="home-empty-text"></p>
+        <button class="pill primary" data-nav id="home-setup" hidden>Set up search</button>
+      </div>
+    </main>
+
+    <!-- Live TV: every channel from your lists and servers, once each -->
+    <main class="view live" id="view-live" hidden>
+      <div class="live-offer" id="live-offer" hidden>
+        <div class="lo-text">
+          <h2 id="lo-title">Start with live channels from your country?</h2>
+          <p id="lo-text"></p>
+        </div>
+        <div class="lo-actions">
+          <button class="pill primary" data-nav id="lo-yes">Yes</button>
+          <button class="pill" data-nav id="lo-pick">Pick another country</button>
+          <button class="pill quiet" data-nav id="lo-no">Not now</button>
+        </div>
+      </div>
+      <div class="live-bar">
+        <div class="live-groups" id="live-groups"></div>
+        <span class="live-meta" id="live-meta"></span>
+      </div>
+      <div class="live-body" id="live-body">
+        <div class="live-list" id="live-list"></div>
+        <aside class="live-info" id="live-info"></aside>
+      </div>
+      <!-- While channels load for the first time: an animation and a placeholder guide -->
+      <div class="live-loading" id="live-loading" hidden>
+        <div class="tuning" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <p>Tuning in to your channels…</p>
+        <div class="live-ghosts" id="live-ghosts"></div>
+      </div>
+      <div class="home-empty" id="live-empty" hidden>
+        <h2>Live TV</h2>
+        <p id="live-empty-text"></p>
+        <button class="pill primary" data-nav id="live-setup">Add a channel list</button>
+      </div>
+    </main>
+
+    <!-- Music: search the catalogue, then what's new on your servers and what's popular -->
+    <main class="view music-view" id="view-music" hidden>
+      <button class="searchbar" data-nav id="open-music-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+        Search artists, albums and songs
+      </button>
+      <div class="shelves" id="music-rows"></div>
+      <div class="home-empty" id="music-empty" hidden>
+        <h2>Music</h2>
+        <p id="music-empty-text"></p>
+      </div>
+    </main>
+
+    <!-- View 2: genres -->
+    <main class="view" id="view-genres" hidden>
+      <div class="genre-grid" id="genre-grid"></div>
+      <div class="home-empty" id="genres-empty" hidden>
+        <h2>Browse by genre</h2>
+        <p id="genres-empty-text"></p>
+        <button class="pill primary" data-nav id="genres-setup">Set up search</button>
+      </div>
+    </main>
+
+    <!-- View 3: everything on your Jellyfin servers -->
+    <main class="view library" id="view-library" hidden>
+      <div class="lib-bar">
+        <div class="lib-servers segmented" id="lib-servers"></div>
+        <div class="segmented" id="lib-type">
+          <button class="pill chosen" data-nav data-type="movie">Movies</button>
+          <button class="pill" data-nav data-type="tv">Shows</button>
+        </div>
+      </div>
+      <div class="lib-body">
+        <div class="letters" id="letters"></div>
+        <div class="grid lib-grid" id="lib-grid"></div>
+      </div>
+      <div class="home-empty" id="lib-empty" hidden>
+        <h2>Your library</h2>
+        <p>Add a Jellyfin server to browse every movie and show on it.</p>
+        <button class="pill primary" data-nav id="lib-setup">Add a server</button>
+      </div>
+    </main>
+
+    <footer class="hints">
+      <span><kbd data-bind="ok"></kbd>Open</span>
+      <span><kbd data-bind="scrollup"></kbd><kbd data-bind="scrolldown"></kbd>Switch view</span>
+      <span><kbd data-bind="menu"></kbd>Menu · or F10</span>
+    </footer>
+  </section>
+
+  <!-- iptv-org: pick countries, languages and categories -->
+  <section class="screen" id="screen-iptv" hidden>
+    <div class="allgenres">
+      <header class="more-top">
+        <div>
+          <p class="eyebrow">Live TV · iptv-org</p>
+          <h1>Choose channels</h1>
+        </div>
+        <div class="segmented" id="iptv-tabs">
+          <button class="pill chosen" data-nav data-tab="countries">Countries</button>
+          <button class="pill" data-nav data-tab="languages">Languages</button>
+          <button class="pill" data-nav data-tab="categories">Categories</button>
+        </div>
+      </header>
+      <div class="allgenres-body">
+        <p class="fine" id="iptv-note">Pick as many as you like. Channels that are in more than one show once.</p>
+        <div class="iptv-grid" id="iptv-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Every genre, grouped -->
+  <section class="screen" id="screen-allgenres" hidden>
+    <div class="allgenres">
+      <header class="more-top">
+        <div>
+          <p class="eyebrow">Browse</p>
+          <h1>All genres</h1>
+        </div>
+      </header>
+      <div class="allgenres-body" id="allgenres-body"></div>
+    </div>
+  </section>
+
+  <!-- More: one list, as a big grid that keeps loading as you scroll -->
+  <section class="screen" id="screen-more" hidden>
+    <div class="more">
+      <header class="more-top">
+        <div>
+          <p class="eyebrow" id="more-eyebrow"></p>
+          <h1 id="more-title"></h1>
+        </div>
+        <div class="segmented" id="more-kind" hidden>
+          <button class="pill chosen" data-nav data-kind="all">All</button>
+          <button class="pill" data-nav data-kind="movie">Movies</button>
+          <button class="pill" data-nav data-kind="tv">Shows</button>
+        </div>
+      </header>
+      <div class="grid more-grid" id="more-grid"></div>
+    </div>
+  </section>
+
+  <!-- Search: on-screen keyboard on the left, live results on the right -->
+  <section class="screen" id="screen-search" hidden>
+    <div class="typing">
+      <div class="query" id="query"><span id="query-text"></span><span class="caret"></span></div>
+      <div class="osk" id="osk"></div>
+      <div class="hints compact">
+        <span><kbd data-bind="delete"></kbd>Delete</span>
+        <span><kbd data-bind="playpause"></kbd>Space</span>
+        <span><kbd data-bind="back"></kbd>Back</span>
+      </div>
+    </div>
+
+    <div class="results-pane">
+      <p class="eyebrow" id="results-label">Type to search</p>
+      <div class="results" id="results"></div>
+      <div class="message" id="results-message" hidden>
+        <p id="results-message-text"></p>
+        <button class="pill" data-nav id="results-setup" hidden>Set up search</button>
+      </div>
+      <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    </div>
+  </section>
+
+  <!-- Title detail: where it's streaming -->
+  <section class="screen" id="screen-detail" hidden>
+    <div class="backdrop" id="d-backdrop"></div>
+    <div class="detail">
+     <div class="d-main">
+      <p class="eyebrow" id="d-kind"></p>
+      <h1 id="d-title"></h1>
+      <p class="meta"><span class="rating" id="d-rating" hidden></span><span id="d-meta"></span></p>
+      <p class="tagline" id="d-tagline" hidden></p>
+      <p class="overview" id="d-overview"></p>
+
+      <p class="eyebrow" id="d-watch-label">Watch on</p>
+      <div class="watch" id="d-watch"></div>
+     </div>
+     <div class="d-side">
+      <div class="elsewhere" id="d-other" hidden>
+        <p class="eyebrow">Streaming on other services</p>
+        <div class="mini-row" id="d-other-row"></div>
+      </div>
+      <div class="elsewhere" id="d-elsewhere" hidden>
+        <p class="eyebrow">Rent or buy</p>
+        <div class="mini-row" id="d-elsewhere-row"></div>
+      </div>
+      <div class="elsewhere" id="d-trakt" hidden>
+        <p class="eyebrow">Trakt</p>
+        <div class="mini-row" id="d-trakt-row"></div>
+      </div>
+      <div class="elsewhere" id="d-free" hidden>
+        <p class="eyebrow">Not listed? Search your free services</p>
+        <div class="mini-row" id="d-free-row"></div>
+      </div>
+      <div class="d-side-loading" id="d-side-loading" hidden>
+        <span class="skeleton-line" style="width: 11rem"></span>
+        <span class="skeleton-line pill-ph" style="width: 8rem"></span><span class="skeleton-line pill-ph" style="width: 6rem"></span><span class="skeleton-line pill-ph" style="width: 9rem"></span>
+        <span class="skeleton-line" style="width: 9rem"></span>
+        <span class="skeleton-line pill-ph" style="width: 10rem"></span>
+      </div>
+      <div class="elsewhere" id="d-yt" hidden>
+        <p class="eyebrow">Find it on YouTube</p>
+        <div class="mini-row" id="d-yt-row"></div>
+        <p class="fine">Looks for uploads of this title on YouTube (in VacuumTube if you have it). Not the same as YouTube's rent or buy.</p>
+      </div>
+      <div class="people" id="d-people-box" hidden>
+        <p class="eyebrow">Cast &amp; crew</p>
+        <div class="people-row" id="d-people"></div>
+      </div>
+      <p class="d-status" id="d-status" hidden></p>
+      <div class="d-tip" id="d-mpv" hidden>
+        <span>Install mpv for the best Jellyfin playback. Until then, titles play in the built-in player.</span>
+        <button class="pill small-inline" data-nav id="d-mpv-more">Learn more</button>
+      </div>
+      <div class="d-tip" id="d-vt" hidden>
+        <span>VacuumTube is the better app for watching YouTube on a TV.</span>
+        <button class="pill small-inline" data-nav id="d-vt-more">Learn more</button>
+      </div>
+
+      <p class="credit" id="d-credit">Streaming availability from JustWatch · Details from TMDB</p>
+     </div>
+    </div>
+  </section>
+
+  <!-- Radio: your stations, SomaFM, what's popular in your country, or a search -->
+  <section class="screen" id="screen-radio" hidden>
+    <div class="allgenres">
+      <header class="more-top">
+        <div>
+          <p class="eyebrow">Music</p>
+          <h1>Radio</h1>
+        </div>
+        <div class="segmented" id="radio-tabs"></div>
+      </header>
+      <div class="radio-body">
+        <p class="fine" id="radio-note"></p>
+        <div class="radio-list" id="radio-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- An artist: their picture, and shelves of albums, EPs, singles, live, unofficial, tributes... -->
+  <section class="screen" id="screen-artist" hidden>
+    <div class="backdrop music-backdrop" id="ar-backdrop"></div>
+    <div class="music-page" id="ar-page">
+      <header class="ar-head">
+        <div class="ar-picture" id="ar-picture"></div>
+        <div>
+          <p class="eyebrow">Artist</p>
+          <h1 id="ar-name"></h1>
+          <p class="meta" id="ar-about"></p>
+        </div>
+      </header>
+      <div class="shelves" id="ar-shelves"></div>
+      <p class="credit">Releases from MusicBrainz · Pictures from the Cover Art Archive and Deezer</p>
+    </div>
+  </section>
+
+  <!-- An album: where it's streaming, and its tracks -->
+  <section class="screen" id="screen-album" hidden>
+    <div class="backdrop music-backdrop" id="al-backdrop"></div>
+    <div class="album-page">
+      <div class="al-cover" id="al-cover"></div>
+      <div class="al-main">
+        <p class="eyebrow" id="al-kind">Album</p>
+        <h1 id="al-title"></h1>
+        <p class="meta"><button class="link-btn" data-nav id="al-artist"></button><span id="al-meta"></span></p>
+        <p class="eyebrow" id="al-yours-label" hidden>Play from your servers</p>
+        <div class="watch" id="al-yours"></div>
+        <p class="eyebrow" id="al-listen-label">Listen on</p>
+        <div class="watch" id="al-listen"></div>
+        <p class="fine" id="al-note"></p>
+      </div>
+      <div class="al-tracks" id="al-tracks"></div>
+    </div>
+  </section>
+
+  <!-- A playlist made for you (ListenBrainz): its songs, played from your servers -->
+  <section class="screen" id="screen-playlist" hidden>
+    <div class="backdrop music-backdrop" id="pl-backdrop"></div>
+    <div class="album-page">
+      <div class="al-cover" id="pl-cover"></div>
+      <div class="al-main">
+        <p class="eyebrow">Made for you · ListenBrainz</p>
+        <h1 id="pl-title"></h1>
+        <p class="meta" id="pl-meta"></p>
+        <div class="watch" id="pl-play"></div>
+        <p class="fine" id="pl-about"></p>
+      </div>
+      <div class="al-tracks" id="pl-tracks"></div>
+    </div>
+  </section>
+
+  <!-- Settings: the TMDB key that powers search -->
+  <section class="screen" id="screen-settings" hidden>
+    <div class="settings">
+      <p class="eyebrow" id="s-eyebrow">SOFA King</p>
+      <h1>Settings</h1>
+
+      <h2 class="section-title">Look</h2>
+      <p class="sub-label" data-group="Layout">How Home is arranged, and how you move around it.</p>
+      <div class="layouts s-scroll" id="s-rows"></div>
+      <p class="sub-label" data-group="Mood">A ready-made feel: colours, fonts, sounds, and effects like falling snow or a moving background.</p>
+      <div class="theme-picks s-scroll" id="s-themes"></div>
+      <p class="sub-label" data-group="Saved themes">Up to ten looks of your own. Choose an empty square to save the look you're using there.</p>
+      <div class="saved-picks" id="s-saved"></div>
+
+      <h2 class="section-title" data-group="Your theme">Advanced theming</h2>
+      <p class="lede">Change any part of the look. It becomes <b>Custom</b>, which you can save as one of your ten themes.</p>
+      <div class="custom-bar">
+        <p id="s-custom-status"></p>
+        <button class="pill" data-nav id="s-look-save">Save as a theme</button>
+        <button class="pill" data-nav id="s-look-delete" hidden>Delete this theme</button>
+      </div>
+      <p class="sub-label" data-group="Colours">Colour schemes for every screen.</p>
+      <div class="schemes s-scroll" id="s-colors"></div>
+      <p class="sub-label" data-group="Highlight colour">Put a different highlight colour on any scheme.</p>
+      <div class="accents" id="s-accents"></div>
+      <p class="sub-label" data-group="Heading font">For titles and headings.</p>
+      <div class="font-picks s-scroll" id="s-font-display"></div>
+      <p class="sub-label" data-group="Text font">For everything else.</p>
+      <div class="font-picks s-scroll" id="s-font-text"></div>
+      <p class="sub-label" data-group="Sounds">Selecting a set plays a sample.</p>
+      <div class="sound-picks s-scroll" id="s-sound-sets"></div>
+      <p class="sub-label" data-group="Instrument">The sound pack's notes, played on something else. Selecting one plays a sample.</p>
+      <div class="sound-picks s-scroll" id="s-instrument"></div>
+      <p class="sub-label" data-group="Sound effects">Effects on every sound. Switch on as many as you like.</p>
+      <div class="fx-picks" id="s-sound-fx"></div>
+      <p class="sub-label" data-group="Background">A moving picture behind everything. One at a time.</p>
+      <div class="bg-picks s-scroll" id="s-backgrounds"></div>
+      <p class="sub-label" data-group="Effects">Extra touches over everything. Switch on as many as you like.</p>
+      <div class="fx-picks s-scroll" id="s-effects"></div>
+      <p class="sub-label" data-group="Make your own">Moods, layouts, colours, fonts, sounds, effects and backgrounds of your own.</p>
+      <div class="theme-own">
+        <p class="fine" id="s-theme-folder"></p>
+        <button class="pill" data-nav id="s-theme-reload">Look for new themes</button>
+      </div>
+      <button class="pill toggle" data-nav id="s-convert-audio">
+        <span><b>Convert other sound formats</b><small id="s-convert-status"> </small></span><span class="switch"></span>
+      </button>
+
+      <h2 class="section-title">Search</h2>
+      <p class="lede">Search uses a free key from TMDB, the movie database. Get it once and the app remembers it.</p>
+
+      <div class="status" id="s-status"></div>
+
+      <div class="found" id="s-found" hidden>
+        <p>Found a key on your clipboard: <code id="s-found-key"></code></p>
+        <button class="pill primary" data-nav id="s-save">Save this key</button>
+      </div>
+
+      <div class="actions" id="s-actions">
+        <button class="pill" data-nav id="s-phone">Paste it from my phone</button>
+        <button class="pill" data-nav id="s-web">Find it on themoviedb.org</button>
+        <button class="pill" data-nav id="s-clip">Use copied key</button>
+        <button class="pill quiet" data-nav id="s-remove" hidden>Remove key</button>
+      </div>
+
+      <p class="note" id="s-note"></p>
+
+      <div class="how" id="s-how">
+        <p class="eyebrow">Getting a key</p>
+        <ol>
+          <li>Sign in at themoviedb.org (or make a free account).</li>
+          <li>Go to Settings → API. If you don't have a key yet, request a developer key there.</li>
+          <li>Copy the <strong>API Read Access Token</strong>, the long one, and paste it here from your phone, or copy it in the app and come back.</li>
+        </ol>
+      </div>
+
+      <h2 class="section-title">More free services</h2>
+      <p class="lede">Where-to-watch data from TMDB often misses titles on Tubi, Pluto TV, The Roku Channel and other free services. A free Watchmode key fills those gaps, and adds direct links to titles where it has them.</p>
+      <div class="status" id="wm-status"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="wm-setup">Set up Watchmode</button>
+        <button class="pill quiet" data-nav id="wm-remove" hidden>Remove key</button>
+      </div>
+
+      <h2 class="section-title">Trakt</h2>
+      <p class="lede">Trakt keeps track of what you watch, anywhere, and suggests what to watch next. Connect it to see your Trakt watchlist and Trakt's picks for you on Home, and to add titles to your watchlist from their pages.</p>
+      <div class="status" id="trakt-status"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="trakt-setup">Set up Trakt</button>
+        <button class="pill quiet" data-nav id="trakt-remove" hidden>Disconnect</button>
+      </div>
+      <div class="trakt-options" id="trakt-options" hidden>
+        <button class="pill toggle" data-nav id="trakt-rows">
+          <span>Show my Trakt watchlist and picks on Home</span><span class="switch" aria-hidden="true"></span>
+        </button>
+        <button class="pill toggle" data-nav id="trakt-scrobble">
+          <span>Tell Trakt what I watch in mpv</span><span class="switch" aria-hidden="true"></span>
+        </button>
+        <p class="fine">Leave this off if your Jellyfin server already sends what you watch to Trakt (the Jellyfin Trakt plugin), or everything gets counted twice.</p>
+      </div>
+
+      <p class="sub-label" data-group="Screen">How the app fills the screen.</p>
+      <button class="pill toggle on" data-nav id="s-fullscreen">
+        <span>Full screen</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">On by default. Off puts the app in a normal window (handy on a desktop). Starting it with <code>--windowed</code> (as <code>npm run dev</code> does) always opens a window.</p>
+      <button class="pill toggle on" data-nav id="s-motion">
+        <span>Animations</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">Small, quick movements as things appear and change. Off: everything moves straight to where it's going (also when your system is set to reduce motion).</p>
+
+      <h2 class="section-title" data-group="Channel sources">Live TV</h2>
+      <p class="lede">Channels come from IPTV channel lists (like FastChannels) and from Live TV on your Jellyfin servers. A channel that's in several places shows once, and plays from the first place on this list that has it (the next one if that doesn't work).</p>
+      <div class="live-sources" id="live-sources"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="live-add">Add a channel list</button>
+        <button class="pill quiet" data-nav id="live-refresh">Refresh channels</button>
+      </div>
+      <button class="pill toggle" data-nav id="live-jf" data-group="Options">
+        <span>Use Live TV from my Jellyfin servers</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="live-quality">
+        <span>Play the sharpest copy of a channel first</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">When a channel comes in several versions (HD and SD, or from different places), the sharpest one plays first, then the rest in the order above. Sharpness comes from the channel's name ("HD", "4K"…) and is measured whenever a copy plays.</p>
+      <button class="pill toggle" data-nav id="live-hide">
+        <span>Hide channels that don't work</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine" id="live-hide-note">Channels from channel lists are checked in the background every so often (and whenever one fails to play). Ones that don't open are hidden from the guide.</p>
+      <h3 class="sub-title">iptv-org</h3>
+      <p class="fine">A free, community-run collection of public live streams from around the world. Add channels by country, language or category.</p>
+      <p class="iptv-chosen" id="iptv-chosen"></p>
+      <div class="actions">
+        <button class="pill" data-nav id="iptv-open">Choose iptv-org channels</button>
+      </div>
+      <div class="live-dupes" id="live-dupes" data-group="Possible duplicates" hidden>
+        <h3 class="sub-title" id="live-dupes-title">Possible duplicates</h3>
+        <p class="fine">These have the same name, but their guides don't confirm they're the same channel (two cities' stations of one network look like this). <b>Check</b> watches both for about 40 seconds and compares the pictures; <b>Check all</b> does that for each pair and sorts them out for you, leaving only the ones it can't tell.</p>
+        <div class="actions"><button class="pill" data-nav id="live-dupes-all">Check all</button></div>
+        <div class="dupes-log" id="live-dupes-log"></div>
+        <div id="live-dupes-list"></div>
+      </div>
+
+      <h2 class="section-title" data-group="Jellyfin">Jellyfin</h2>
+      <p class="lede">Add your Jellyfin servers. Anything you have there gets its own button on the title's page.</p>
+      <div class="servers" id="jf-servers"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="jf-add">Add a server</button>
+      </div>
+      <p class="note" id="jf-note"></p>
+
+      <h2 class="section-title" data-group="Plex">Plex</h2>
+      <p class="lede">Sign in to Plex to use your Plex servers, and ones shared with you, the same way: Jump back in, Up next, Library, and a button on each title's page when it's there.</p>
+      <p class="note" id="plex-account"></p>
+      <div class="servers" id="plex-servers"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="plex-signin">Sign in to Plex</button>
+        <button class="pill quiet" data-nav id="plex-refresh" hidden>Look for servers again</button>
+        <button class="pill quiet" data-nav id="plex-signout" hidden>Sign out of Plex</button>
+      </div>
+      <p class="note" id="plex-note"></p>
+      <p class="fine">Plex titles play in mpv (with resume points, watched marks, and intro and credits skipping when your server has marked them). Without mpv, they open in Plex's own web player.</p>
+
+      <p class="sub-label" data-group="Playing">Play with</p>
+      <div class="segmented" id="jf-player">
+        <button class="pill" data-nav data-player="mpv">mpv <small>best</small></button>
+        <button class="pill" data-nav data-player="desktop">Jellyfin Desktop</button>
+        <button class="pill" data-nav data-player="web">Built-in player</button>
+      </div>
+
+      <p class="sub-label">When playing in mpv</p>
+      <button class="pill toggle" data-nav id="pb-autoplay">
+        <span>Play the next episode automatically</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="pb-intro">
+        <span>Skip intros automatically</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="pb-credits">
+        <span>Skip credits automatically</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="pb-stop">
+        <span>Ask "are you sure?" before stopping</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">Intros and credits can be skipped when your server has marked them (Jellyfin 10.10 or newer, usually with the Intro Skipper plugin).</p>
+
+      <p class="sub-label" data-group="Still watching?">Ask "Are you still watching?"</p>
+      <div class="segmented" id="sw-mode">
+        <button class="pill" data-nav data-mode="off">Never</button>
+        <button class="pill" data-nav data-mode="episodes">After some episodes</button>
+        <button class="pill" data-nav data-mode="time">After a while</button>
+      </div>
+      <div class="stepper" id="sw-stepper">
+        <button class="pill" data-nav id="sw-less" aria-label="Less">−</button>
+        <span id="sw-value"></span>
+        <button class="pill" data-nav id="sw-more" aria-label="More">+</button>
+      </div>
+
+      <h2 class="section-title" data-group="Navidrome">Music</h2>
+      <p class="lede">Add your Navidrome server (or another Subsonic server). Albums you have there get a button on the album's page and their own shelf on the artist's page, and play in mpv.</p>
+      <div class="servers" id="mu-servers"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="mu-add">Add a server</button>
+      </div>
+      <p class="note" id="mu-note"></p>
+      <p class="fine">Your password isn't saved: only a scrambled form of it that your server can check. It's never put in a web address.</p>
+
+      <p class="sub-label" data-group="Folders">Which folders count</p>
+      <p class="lede">Pick the folders on your server that the Music tab looks in. With none picked, it looks in all of them. (Your server lists its folders as separate libraries.)</p>
+      <div class="mu-folders" id="mu-folders"></div>
+
+      <p class="sub-label" data-group="Radio">Radio</p>
+      <p class="lede">Stations you add play alongside your favourites. Paste a stream's address, or an M3U or PLS playlist.</p>
+      <div class="servers" id="ra-mine"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="ra-add">Add a station</button>
+      </div>
+      <p class="note" id="ra-note"></p>
+      <button class="pill toggle" data-nav id="ra-somafm">
+        <span>Show SomaFM's channels</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">Stations come from Radio Browser, a free list kept by its listeners, and SomaFM. They play in mpv: ◀ and ▶ (previous and next) change station.</p>
+
+      <p class="sub-label" data-group="Music services">Your music services</p>
+      <p class="lede">Each one you switch on gets a button on every album's page.</p>
+      <div class="mu-services" id="mu-services"></div>
+      <button class="pill toggle" data-nav id="mu-use-jellyfin">
+        <span>Look for albums on your Jellyfin servers too</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="mu-use-plex">
+        <span>Look for albums on your Plex servers too</span><span class="switch" aria-hidden="true"></span>
+      </button>
+
+      <p class="sub-label" data-group="Recommendations">Playlists made for you, and artists like the ones you look at.</p>
+      <p class="lede">ListenBrainz makes playlists for you from what you listen to (Navidrome can send it your plays). Give your ListenBrainz name and they appear on the Music tab as <strong>Made for you</strong>.</p>
+      <div class="status" id="mu-lb-status"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="mu-lb-set">Add your ListenBrainz name</button>
+        <button class="pill quiet" data-nav id="mu-lb-clear" hidden>Forget it</button>
+      </div>
+      <p class="note" id="mu-lb-note"></p>
+      <p class="lede">Related artists come from ListenBrainz with no setup. A free Last.fm key gives Last.fm's instead, which often know more artists.</p>
+      <div class="status" id="mu-lf-status"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="mu-lf-setup">Set up Last.fm</button>
+        <button class="pill quiet" data-nav id="mu-lf-remove" hidden>Remove key</button>
+      </div>
+
+      <p class="sub-label" data-group="Artist pages">What an artist's page shows, besides their own releases</p>
+      <button class="pill toggle" data-nav id="mu-shelf-unofficial">
+        <span>Unofficial releases (bootlegs)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="mu-shelf-tribute">
+        <span>Tributes and covers</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="mu-shelf-appears">
+        <span>Albums they appear on</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="mu-shelf-related">
+        <span>Related artists</span><span class="switch" aria-hidden="true"></span>
+      </button>
+
+      <h2 class="section-title" data-group="Where it opens">YouTube</h2>
+      <p class="lede">Where YouTube opens: from the YouTube tile, "Find it on YouTube", trailers on other sites, and YouTube Music's button on an album's page.</p>
+      <div class="segmented" id="yt-open">
+        <button class="pill" data-nav data-open="auto">Automatic</button>
+        <button class="pill" data-nav data-open="tv">YouTube for TV, here</button>
+        <button class="pill" data-nav data-open="website">The website</button>
+      </div>
+      <p class="fine" id="yt-open-note"></p>
+
+      <p class="sub-label" data-group="Extras">Extras for YouTube for TV</p>
+      <p class="lede">For YouTube's TV page when it opens here. (VacuumTube has these built in, in its own settings.) They start the next time YouTube opens.</p>
+      <button class="pill toggle" data-nav id="yt-adblock">
+        <span>Block ads</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="yt-sponsorblock">
+        <span>Skip sponsor spots (SponsorBlock)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="yt-dislikes">
+        <span>Show likes and dislikes (Return YouTube Dislike)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="yt-dearrow">
+        <span>Plainer titles instead of clickbait (DeArrow)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">SponsorBlock, Return YouTube Dislike and DeArrow are free lists kept by their users. SponsorBlock and DeArrow are only told the first few characters of a scrambled video id; Return YouTube Dislike is told which video is playing.</p>
+
+      <p class="sub-label" data-group="SponsorBlock">What SponsorBlock skips</p>
+      <div id="yt-cats"></div>
+
+      <h2 class="section-title">Apps</h2>
+      <div class="app-row">
+        <div>
+          <p class="app-name">mpv <span class="app-badge" id="app-mpv-badge"></span></p>
+          <p class="app-state" id="app-mpv-state"></p>
+        </div>
+        <button class="pill" data-nav id="app-mpv-more">Learn more</button>
+      </div>
+      <div class="app-row">
+        <div>
+          <p class="app-name">VacuumTube <span class="app-badge" id="app-vt-badge"></span></p>
+          <p class="app-state" id="app-vt-state"></p>
+        </div>
+        <button class="pill" data-nav id="app-vt-more">Learn more</button>
+      </div>
+      <div class="app-row">
+        <div>
+          <p class="app-name">Jellyfin Desktop <span class="app-badge" id="app-jf-badge"></span></p>
+          <p class="app-state" id="app-jf-state"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="pill quiet" data-nav id="apps-again">Check again</button>
+        <button class="pill quiet" data-nav id="apps-vt-path">Tell it where VacuumTube is</button>
+      </div>
+      <p class="fine">Installed something just now? Check again. Apps are found as Flatpaks, regular installs (from your distro, the AUR and so on, through their app-launcher entries), and AppImages in your Applications, Downloads or ~/.local/bin folder. If VacuumTube still isn't found, tell it the program's full path, like /opt/VacuumTube/vacuumtube.</p>
+
+      <p class="sub-label" data-group="mpv's screen">Which screen mpv opens on.</p>
+      <div class="segmented" id="mpv-screen"></div>
+      <p class="fine">Automatic is the screen the app is on. If mpv still opens on another one (some desktops, Wayland ones especially, decide for themselves), pick the screen here. It's remembered.</p>
+
+      <h2 class="section-title" data-group="Controller">Controller</h2>
+      <button class="pill toggle" data-nav id="s-sounds">
+        <span>Sound effects</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="s-hints">
+        <span>Show the controls strip over websites</span>
+        <span class="switch" id="s-hints-state" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle" data-nav id="s-pause">
+        <span>Pause the video while the menu is open</span>
+        <span class="switch" aria-hidden="true"></span>
+      </button>
+
+      <p class="sub-label" data-group="On-screen keyboard">Typing with the controller.</p>
+      <p class="fine">L2 or R2 on its own works like holding Shift: while you hold it you type capitals and the second character on each key (! instead of 1), and letting go goes back. Pressing L2 and R2 together turns caps lock on, and pressing both again turns it off; with caps lock on, holding L2 or R2 types small letters. Start is Done. Each key that has a button of its own shows it.</p>
+      <button class="pill toggle on" data-nav id="s-kb-confirm">
+        <span>Ask "are you sure?" before sending (Start) or cancelling (B)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="lede bind-lede" data-group="Buttons">Pick an action, then press the button you want for it. The D-pad always moves around.</p>
+      <div class="bindings" id="bindings"></div>
+      <div class="actions">
+        <button class="pill quiet" data-nav id="bind-reset">Reset buttons to defaults</button>
+      </div>
+      <p class="note" id="bind-note"></p>
+
+      <p class="sub-label" data-group="Buttons in mpv">In mpv, while a Jellyfin title plays</p>
+      <div class="bindings" id="mpv-bindings"></div>
+
+      <div class="actions">
+        <button class="pill quiet" data-nav id="mpvb-reset">Reset mpv buttons to defaults</button>
+      </div>
+      <p class="note" id="mpvb-note"></p>
+
+      <h2 class="section-title" data-group="Debug logging">Developer</h2>
+      <p class="lede">The app keeps a log of what it does: handy when something doesn't work. Passwords, keys and sign-ins are never written to it.</p>
+      <button class="pill toggle" data-nav id="dev-debug">
+        <span>Debug logging</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">Adds much more detail: every request to your servers, what a live channel offers, and mpv's own log of what it played. Turn it on, try the thing that isn't working, then get the log.</p>
+      <p class="sub-label" data-group="Get the log">Send the log to your phone, or start it afresh.</p>
+      <p class="status" id="dev-status"></p>
+      <div class="actions">
+        <button class="pill" data-nav id="dev-phone">Get the log on my phone</button>
+        <button class="pill quiet" data-nav id="dev-clear">Clear the log</button>
+      </div>
+      <div class="dev-qr" id="dev-qr" hidden>
+        <div class="qr" id="dev-qr-code"></div>
+        <p class="fine" id="dev-qr-text"></p>
+      </div>
+    </div>
+
+    <aside class="phone-panel" id="s-phone-panel" hidden>
+      <div class="qr" id="s-qr"></div>
+      <p class="phone-title">Scan with your phone</p>
+      <p class="phone-help">Paste your key on the page that opens and tap Save. Your phone and TV need to be on the same Wi-Fi.</p>
+      <p class="phone-url" id="s-url"></p>
+
+      <div class="trouble" id="s-trouble" hidden>
+        <p class="trouble-title">Phone not connecting?</p>
+        <p class="trouble-text" id="s-trouble-text"></p>
+        <button class="pill small" data-nav id="s-allow" hidden>Allow on my home network</button>
+        <p class="trouble-keys" id="s-trouble-keys"></p>
+        <p class="trouble-cmd" id="s-trouble-cmd" hidden></p>
+      </div>
+    </aside>
+
+    <aside class="phone-panel jf-panel" id="plex-panel" hidden>
+      <p class="phone-title">Sign in to Plex</p>
+      <p class="phone-help">On a phone or computer, go to <strong>plex.tv/link</strong>, sign in to Plex if it asks, and enter:</p>
+      <p class="qc-code" id="plex-code"></p>
+      <p class="phone-help" id="plex-status">Getting a code…</p>
+      <button class="pill small" data-nav id="plex-cancel">Cancel</button>
+    </aside>
+
+    <aside class="phone-panel jf-panel" id="jf-panel" hidden>
+      <div id="jf-pick">
+        <p class="phone-title">Add a Jellyfin server</p>
+        <p class="phone-help" id="jf-pick-status">Looking on your network…</p>
+        <div class="jf-found" id="jf-found"></div>
+        <button class="pill small" data-nav id="jf-type">Type an address</button>
+      </div>
+      <div id="jf-qc" hidden>
+        <p class="phone-title" id="jf-qc-title">Sign in</p>
+        <p class="phone-help">On a phone or computer that's signed in to Jellyfin, open your profile → <strong>Quick Connect</strong> and enter:</p>
+        <p class="qc-code" id="jf-qc-code"></p>
+        <p class="phone-help" id="jf-qc-status">Waiting for approval…</p>
+        <button class="pill small" data-nav id="jf-password">Use username and password</button>
+      </div>
+    </aside>
+  </section>
+
+  <!-- A show on a Jellyfin server: continue, seasons, episodes -->
+  <section class="screen" id="screen-episodes" hidden>
+    <div class="eps">
+      <p class="eyebrow" id="ep-server"></p>
+      <h1 id="ep-title"></h1>
+      <div class="ep-next" id="ep-next"></div>
+      <div class="ep-seasons" id="ep-seasons"></div>
+      <div class="ep-list" id="ep-list"></div>
+      <p class="d-status" id="ep-status" hidden></p>
+      <footer class="hints ep-hints">
+        <span><kbd data-bind="ok"></kbd>Play</span>
+        <span><kbd data-bind="scrollup"></kbd><kbd data-bind="scrolldown"></kbd>Previous / next season</span>
+        <span><kbd data-bind="back"></kbd>Back</span>
+        <span><kbd data-bind="menu"></kbd>Menu</span>
+      </footer>
+    </div>
+  </section>
+
+  <!-- Resume or start over -->
+  <section class="screen" id="screen-choose" hidden>
+    <div class="choose">
+      <p class="eyebrow" id="choose-eyebrow"></p>
+      <h1 id="choose-title"></h1>
+      <div class="choose-buttons">
+        <button class="watch-btn jellyfin" data-nav id="choose-resume"></button>
+        <button class="watch-btn plain" data-nav id="choose-start">Start over</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- All ten saved themes are used: which one should the new one replace? -->
+  <section class="screen" id="screen-slots" hidden>
+    <div class="choose slots">
+      <p class="eyebrow">Save theme</p>
+      <h1>All ten are used. Which one should this replace?</h1>
+      <div class="saved-picks" id="slots-grid"></div>
+      <p class="fine">Press B to keep them all.</p>
+    </div>
+  </section>
+
+  <!-- Typing something in: an address, a username, a password -->
+  <section class="screen" id="screen-ask" hidden>
+    <div class="ask">
+      <p class="eyebrow" id="ask-eyebrow"></p>
+      <h1 id="ask-label"></h1>
+      <div class="query ask-field" id="ask-field"><span id="ask-text"></span><span class="caret"></span></div>
+      <p class="ask-hint" id="ask-hint"></p>
+      <div class="ask-keys" id="ask-keys"></div>
+      <div class="hints compact">
+        <span><kbd data-bind="delete"></kbd>Delete</span>
+        <span><kbd data-bind="playpause"></kbd>Space</span>
+        <span><kbd data-bind="rclick"></kbd><kbd data-bind="lclick"></kbd>Shift · both: caps lock</span>
+        <span><kbd data-bind="menu"></kbd>Done</span>
+        <span><kbd data-bind="back"></kbd>Cancel</span>
+        <span>You can also type on your phone or a keyboard</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Setup: a step-by-step guide for Watchmode and Trakt -->
+  <section class="screen" id="screen-setup" hidden>
+    <div class="setup">
+      <p class="eyebrow" id="su-eyebrow"></p>
+      <h1 id="su-title"></h1>
+      <div class="su-body" id="su-body"></div>
+      <div class="found" id="su-found" hidden>
+        <p>Found <span id="su-found-what">a key</span> on your clipboard: <code id="su-found-key"></code></p>
+        <button class="pill primary" data-nav id="su-found-save">Use this</button>
+      </div>
+      <div class="actions" id="su-actions"></div>
+      <p class="note" id="su-note"></p>
+    </div>
+    <aside class="su-side" id="su-side" hidden>
+      <div class="qr" id="su-qr"></div>
+      <p class="phone-title" id="su-side-title"></p>
+      <p class="su-code" id="su-code" hidden></p>
+      <p class="phone-help" id="su-side-help"></p>
+      <p class="phone-url" id="su-side-url"></p>
+    </aside>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+  <!-- Effects (Settings → Look → Effects), over every screen (before the scripts, which use it) -->
+  <div id="fx-layer" aria-hidden="true"></div>
+
+  <script src="bindings.js"></script>
+  <script src="sounds.js"></script>
+  <script src="nav.js"></script>
+  <script src="keyboard.js"></script>
+  <script src="home.js"></script>
+  <script src="music.js"></script>
+</body>
+</html>

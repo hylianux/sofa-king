@@ -1,0 +1,19 @@
+{
+  "name": "Deep space",
+  "description": "Stars drifting past in the dark, clean lettering and chiming blips.",
+  "author": "SOFA King",
+  "order": 14,
+  "colors": "midnight",
+  "accent": "#9db4ff",
+  "fonts": {
+    "display": "share-tech",
+    "text": "clean"
+  },
+  "sounds": "classic",
+  "instrument": "bell",
+  "effects": [],
+  "background": "starfield",
+  "soundFx": [
+    "delay"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "My recorded sounds",
+  "description": "Sounds from audio files in this folder.",
+  "author": "Your name",
+  "order": 50,
+  "volume": 1,
+  "reverb": {
+    "mix": 0,
+    "time": 1.5,
+    "dark": 0
+  },
+  "sounds": {
+    "move": "move.wav",
+    "select": "select.wav",
+    "back": "back.wav",
+    "edge": "edge.wav",
+    "open": "open.wav",
+    "close": "close.wav",
+    "type": "type.wav",
+    "screen": [
+      {
+        "f": "E5",
+        "d": 0.08,
+        "v": 0.04
+      },
+      {
+        "f": "A5",
+        "at": 0.07,
+        "d": 0.12,
+        "v": 0.04
+      }
+    ]
+  }
+}

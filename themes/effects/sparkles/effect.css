@@ -1,0 +1,19 @@
+/* Sparkles: two sets that take turns to twinkle. */
+.fx-sparkles::before, .fx-sparkles::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(3px 3px at 12% 18%, rgba(var(--accent-rgb), 0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 82% 12%, rgba(255, 255, 255, 0.85) 50%, transparent 51%),
+    radial-gradient(3px 3px at 90% 70%, rgba(var(--accent-rgb), 0.8) 50%, transparent 51%),
+    radial-gradient(2px 2px at 8% 85%, rgba(255, 255, 255, 0.8) 50%, transparent 51%);
+  animation: fx-twinkle 2.4s ease-in-out infinite alternate;
+}
+.fx-sparkles::after {
+  background-image:
+    radial-gradient(2px 2px at 22% 8%, rgba(255, 255, 255, 0.85) 50%, transparent 51%),
+    radial-gradient(3px 3px at 70% 22%, rgba(var(--accent-rgb), 0.8) 50%, transparent 51%),
+    radial-gradient(2px 2px at 78% 90%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(3px 3px at 18% 64%, rgba(var(--accent-rgb), 0.8) 50%, transparent 51%);
+  animation-delay: -2.4s;
+}
+@keyframes fx-twinkle { from { opacity: 0.15; } to { opacity: 1; } }

@@ -1,0 +1,235 @@
+html, body { background: transparent; }
+
+/* ------------------------------------------------------------ menu */
+
+#menu {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(var(--bg-rgb), 0.95) 0%, rgba(var(--bg-rgb), 0.85) 35%, rgba(var(--bg-rgb), 0.25) 65%, transparent 90%);
+  animation: fade 140ms ease-out;
+}
+
+@keyframes fade { from { opacity: 0; } }
+
+.panel {
+  width: min(34rem, 50vw);
+  height: 100%;
+  padding: 4.5rem 3.5rem 3rem 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3rem;
+}
+
+.col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.col .eyebrow { margin-left: 1.4rem; margin-bottom: 0.8rem; }
+
+.actions, .switch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.switch {
+  overflow-y: auto;
+  padding: 0.6rem; /* room for the focus ring */
+  margin: -0.6rem;
+  scrollbar-width: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1.05rem 1.4rem;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.item.accent { color: var(--accent); }
+
+.item:focus {
+  background: var(--focus);
+  color: var(--on-focus);
+  transform: translateX(0.5rem);
+}
+
+.item.small { font-size: 1.2rem; padding: 0.8rem 1.4rem; }
+
+.notice {
+  margin: 1rem 1.4rem 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--gold);
+}
+
+.dot {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  background: var(--dot);
+  box-shadow: 0 0 0 2px rgba(var(--ink), 0.22);
+  flex: none;
+}
+
+.spacer { flex: 1; }
+
+/* Quit: at the very bottom, under a line. A solid red button with a power symbol, so it's easy to
+   find against the see-through menu (and on any theme). */
+.quit-area { display: flex; margin-top: auto; padding-top: 1.4rem; border-top: 1px solid rgba(var(--ink), 0.14); }
+.item.quit {
+  width: auto; align-self: flex-start; gap: 0.7rem;
+  font-size: 1.2rem; padding: 0.8rem 1.5rem 0.8rem 1.2rem;
+  background: color-mix(in srgb, var(--bad) 22%, var(--bg-raised)); color: color-mix(in srgb, var(--bad) 70%, var(--text));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bad) 70%, transparent);
+}
+.item.quit svg { width: 1.3rem; height: 1.3rem; flex: none; }
+.item.quit:focus { background: var(--bad); color: #fff; box-shadow: none; }
+
+.confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--bg-rgb), 0.7);
+  animation: fade 120ms ease-out;
+}
+.confirm-box {
+  width: min(36rem, 86vw);
+  padding: 2.4rem 2.6rem 2rem;
+  border-radius: 22px;
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px rgba(var(--ink), 0.1), 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.confirm-box h2 { margin: 0 0 0.8rem; font-size: 2rem; font-weight: 750; }
+.confirm-box p { margin: 0 0 1.8rem; font-size: 1.25rem; line-height: 1.5; color: var(--text-soft); }
+.confirm-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.confirm-actions .item { font-size: 1.3rem; }
+/* Both answers the same size and shape (the red "Yes, quit" keeps its colour, not the small
+   size of the Quit button in the menu). */
+.confirm-actions .item, .confirm-actions .item.quit {
+  width: 100%; align-self: stretch; justify-content: flex-start; gap: 1rem;
+  font-size: 1.3rem; padding: 1.05rem 1.4rem; border-radius: 14px;
+}
+
+/* ------------------------------------------------------------ keyboard */
+
+#kb {
+  position: absolute;
+  inset: auto 0 0 0;
+  animation: rise 160ms ease-out;
+}
+
+@keyframes rise { from { transform: translateY(30%); opacity: 0; } }
+
+.sheet {
+  display: flex;
+  gap: 3rem;
+  margin: 0 auto;
+  width: min(80rem, 100%);
+  padding: 1.8rem 3rem 1.6rem;
+  border-radius: 22px 22px 0 0;
+  background: rgba(var(--bg-rgb), 0.97);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(var(--ink), 0.06);
+}
+
+.kb-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.kb-head { display: flex; align-items: baseline; gap: 0.9rem; }
+.kb-head .eyebrow { margin: 0; }
+.kb-label { font-size: 1.1rem; font-weight: 600; }
+
+.kb-preview {
+  display: flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0 1rem;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 1.5rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.kb-preview.empty #kb-text::before { content: "Start typing"; color: var(--faint); }
+.kb-preview.secret #kb-text { letter-spacing: 0.15em; }
+
+.caret {
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  background: var(--text);
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+/* The keys themselves: see .tvkb in ui.css (shared with Home's typing screen). */
+
+.kb-phone {
+  flex: none;
+  width: 12.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.qr {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0.5rem;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.qr svg { display: block; width: 100%; height: 100%; }
+
+.kb-phone-title { margin: 0.9rem 0 0.3rem; font-size: 1.05rem; font-weight: 600; }
+.kb-phone-help { margin: 0; font-size: 0.8rem; line-height: 1.4; color: var(--muted); }
+
+.kb-trouble { margin: 0.6rem 0 0; font-size: 0.8rem; line-height: 1.4; color: var(--gold); }
+.kb-trouble em { font-style: normal; color: var(--text); }
+.kb-phone-addr { margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ motion (see ui.css) */
+#menu:not([hidden]) { animation: tv-slide-in 200ms var(--tv-ease); }
+#menu .item { animation: tv-rise 200ms var(--tv-ease) backwards; }
+#menu .item:nth-child(2) { animation-delay: 25ms; } #menu .item:nth-child(3) { animation-delay: 50ms; }
+#menu .item:nth-child(4) { animation-delay: 75ms; } #menu .item:nth-child(n + 5) { animation-delay: 100ms; }
+.confirm:not([hidden]) { animation: tv-pop 200ms var(--tv-ease); }
+.notice:not([hidden]), #kb:not([hidden]) { animation: tv-rise 200ms var(--tv-ease); }
+.item { transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }

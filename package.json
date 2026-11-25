@@ -1,0 +1,69 @@
+{
+  "name": "sofa-king",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A free, open-source alternative to smart TV apps, Fire TV, Roku, Apple TV and Android TV, running on your own PC.",
+  "license": "GPL-3.0-or-later",
+  "author": "hylianux",
+  "homepage": "https://github.com/hylianux/sofa-king",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hylianux/sofa-king.git"
+  },
+  "desktopName": "sofa-king.desktop",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --windowed",
+    "dist": "electron-builder --linux AppImage --publish never"
+  },
+  "devDependencies": {
+    "electron": "github:castlabs/electron-releases#v45.2.1+wvcus",
+    "electron-builder": "26.18.0"
+  },
+  "allowScripts": {
+    "electron": true
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "tone": "15.1.22"
+  },
+  "build": {
+    "appId": "io.github.hylianux.SofaKing",
+    "productName": "SOFA King",
+    "electronVersion": "45.2.1",
+    "electronDist": "node_modules/electron/dist",
+    "asar": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!dev/**",
+      "!dist/**",
+      "!build/**",
+      "!.github/**",
+      "!CLAUDE.md",
+      "!config.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "executableName": "sofa-king",
+      "synopsis": "Your PC as a TV: streaming, your servers, live TV, music and radio, with a controller.",
+      "desktop": {
+        "entry": {
+          "Name": "SOFA King",
+          "Keywords": "TV;Jellyfin;Plex;Netflix;YouTube;Music;Radio;Live TV;"
+        }
+      }
+    },
+    "appImage": {
+      "artifactName": "SOFA-King-${version}-${arch}.${ext}"
+    }
+  }
+}

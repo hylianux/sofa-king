@@ -1,0 +1,25 @@
+{
+  "name": "Cross bar blue",
+  "description": "The PS3 menu's glowing blue wave.",
+  "author": "SOFA King",
+  "order": 11,
+  "colors": {
+    "bg": "#06142e",
+    "surface": "#0d2147",
+    "surface2": "#14305e",
+    "line": "#2c4f8a",
+    "text": "#ffffff",
+    "textSoft": "#d4e2ff",
+    "muted": "#9db4dd",
+    "faint": "#6c86b6",
+    "focus": "#ffffff",
+    "onFocus": "#06142e",
+    "onFocusSoft": "#2c4f8a",
+    "accent": "#8fd3ff",
+    "gold": "#ffe08a",
+    "good": "#7ee6a8",
+    "bad": "#ff8a8a",
+    "glow1": "#1d4ea3",
+    "glow2": "#0a2a66"
+  }
+}

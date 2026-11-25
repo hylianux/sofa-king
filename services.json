@@ -1,0 +1,126 @@
+[
+  {
+    "id": "netflix",
+    "name": "Netflix",
+    "color": "#E50914",
+    "url": "https://www.netflix.com/browse",
+    "searchUrl": "https://www.netflix.com/search?q={q}",
+    "match": "^Netflix"
+  },
+  {
+    "id": "hulu",
+    "name": "Hulu",
+    "color": "#1CE783",
+    "url": "https://www.hulu.com/hub/home",
+    "searchUrl": "https://www.hulu.com/search?q={q}",
+    "match": "^Hulu"
+  },
+  {
+    "id": "disney",
+    "name": "Disney+",
+    "color": "#113CCF",
+    "url": "https://www.disneyplus.com/home",
+    "searchUrl": "https://www.disneyplus.com/search?q={q}",
+    "match": "^Disney( Plus|\\+)"
+  },
+  {
+    "id": "prime",
+    "name": "Prime Video",
+    "color": "#00A8E1",
+    "url": "https://www.amazon.com/gp/video/storefront",
+    "searchUrl": "https://www.amazon.com/gp/video/search?phrase={q}",
+    "match": "^Amazon Prime Video",
+    "store": "store-amazon"
+  },
+  {
+    "id": "hbomax",
+    "name": "HBO Max",
+    "color": "#5822B4",
+    "url": "https://play.hbomax.com",
+    "searchUrl": "https://play.hbomax.com/search?q={q}",
+    "match": "^(HBO Max|Max)( |$)"
+  },
+  {
+    "id": "peacock",
+    "name": "Peacock",
+    "color": "#F2B705",
+    "url": "https://www.peacocktv.com/watch/home",
+    "searchUrl": "https://www.peacocktv.com/watch/search?q={q}",
+    "match": "^Peacock"
+  },
+  {
+    "id": "paramount",
+    "name": "Paramount+",
+    "color": "#0064FF",
+    "url": "https://www.paramountplus.com/home/",
+    "searchUrl": "https://www.paramountplus.com/search/?q={q}",
+    "match": "^Paramount( Plus|\\+)"
+  },
+  {
+    "id": "appletv",
+    "name": "Apple TV",
+    "color": "#2B2B30",
+    "url": "https://tv.apple.com",
+    "searchUrl": "https://tv.apple.com/search?term={q}",
+    "match": "^Apple TV( Plus|\\+)?$",
+    "store": "store-apple"
+  },
+  {
+    "id": "youtube",
+    "name": "YouTube",
+    "color": "#FF0033",
+    "url": "https://www.youtube.com",
+    "searchUrl": "https://www.youtube.com/results?search_query={q}",
+    "match": "^YouTube( Premium)?$",
+    "rentMatch": "^YouTube$"
+  },
+  {
+    "id": "tubi",
+    "name": "Tubi",
+    "color": "#7408FF",
+    "url": "https://tubitv.com/home",
+    "searchUrl": "https://tubitv.com/search/{q}",
+    "match": "^Tubi",
+    "free": true
+  },
+  {
+    "id": "pluto",
+    "name": "Pluto TV",
+    "color": "#FFF200",
+    "url": "https://pluto.tv/on-demand",
+    "match": "^Pluto",
+    "free": true
+  },
+  {
+    "id": "roku",
+    "name": "The Roku Channel",
+    "color": "#6F1AB1",
+    "url": "https://therokuchannel.roku.com",
+    "match": "Roku Channel",
+    "free": true
+  },
+  {
+    "id": "plex",
+    "name": "Plex",
+    "color": "#E5A00D",
+    "url": "https://watch.plex.tv",
+    "match": "^Plex",
+    "free": true
+  },
+  {
+    "id": "kanopy",
+    "name": "Kanopy",
+    "color": "#EB4F3D",
+    "url": "https://www.kanopy.com",
+    "match": "^Kanopy",
+    "free": true
+  },
+  {
+    "id": "hoopla",
+    "name": "Hoopla",
+    "color": "#1E9BD7",
+    "url": "https://www.hoopladigital.com",
+    "match": "^hoopla",
+    "free": true
+  }
+]

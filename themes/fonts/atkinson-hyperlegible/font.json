@@ -1,0 +1,11 @@
+{
+  "name": "Atkinson Hyperlegible",
+  "description": "Made by the Braille Institute to be easy to read, even with low vision.",
+  "order": 2,
+  "family": "Atkinson Hyperlegible",
+  "files": {
+    "400": "atkinson-hyperlegible-400.woff2",
+    "700": "atkinson-hyperlegible-700.woff2"
+  },
+  "license": "OFL-1.1"
+}

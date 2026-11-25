@@ -1,0 +1,11 @@
+{
+  "name": "Fredoka",
+  "description": "Big, bubbly and playful.",
+  "order": 5,
+  "family": "Fredoka",
+  "files": {
+    "400": "fredoka-400.woff2",
+    "700": "fredoka-700.woff2"
+  },
+  "license": "OFL-1.1"
+}

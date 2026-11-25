@@ -1,0 +1,12 @@
+{
+  "name": "Dancing Script",
+  "description": "Flowing handwriting.",
+  "order": 9,
+  "family": "Dancing Script",
+  "files": {
+    "400": "dancing-script-400.woff2",
+    "700": "dancing-script-700.woff2"
+  },
+  "scale": 118,
+  "license": "OFL-1.1"
+}

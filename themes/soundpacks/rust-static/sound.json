@@ -1,0 +1,44 @@
+{
+  "name": "Rust & static",
+  "description": "Survival-horror ambience: radio static, rusty metal clanks and a low drone in a dark, echoing room.",
+  "author": "SOFA King",
+  "order": 4,
+  "reverb": {"mix": 0.55, "time": 3, "dark": 0.6},
+  "sounds": {
+    "move": [
+      {"w": "noise", "d": 0.07, "v": 0.05, "hp": 1800, "lp": 6000, "a": 0.002},
+      {"w": "noise", "at": 0.03, "d": 0.03, "v": 0.03, "hp": 3000}
+    ],
+    "select": [
+      {"w": "triangle", "f": 180, "to": 150, "d": 0.5, "v": 0.08, "a": 0.002},
+      {"f": 523, "to": 500, "d": 0.35, "v": 0.04, "a": 0.002},
+      {"f": 1237, "d": 0.25, "v": 0.03, "a": 0.001},
+      {"f": 1873, "d": 0.18, "v": 0.02, "a": 0.001},
+      {"w": "noise", "d": 0.05, "v": 0.06, "lp": 2500, "a": 0.001}
+    ],
+    "back": [
+      {"w": "triangle", "f": 90, "to": 60, "d": 0.4, "v": 0.09},
+      {"f": 311, "to": 290, "d": 0.3, "v": 0.03},
+      {"w": "noise", "d": 0.06, "v": 0.04, "lp": 800}
+    ],
+    "edge": [
+      {"w": "sawtooth", "f": 110, "to": 104, "d": 0.3, "v": 0.04, "lp": 700, "det": 35}
+    ],
+    "open": [
+      {"w": "sawtooth", "f": 55, "d": 1.2, "v": 0.05, "a": 0.4, "lp": 400, "det": 12},
+      {"w": "sawtooth", "f": 82.4, "d": 1.2, "v": 0.03, "a": 0.5, "lp": 350, "det": -9},
+      {"w": "noise", "at": 0.1, "d": 0.5, "v": 0.025, "hp": 2000, "trem": [13, 0.9]}
+    ],
+    "close": [
+      {"w": "noise", "d": 0.25, "v": 0.04, "hp": 1500, "trem": [17, 1]},
+      {"w": "triangle", "f": 120, "to": 70, "d": 0.35, "v": 0.06}
+    ],
+    "type": [
+      {"w": "noise", "d": 0.02, "v": 0.04, "hp": 2500}
+    ],
+    "screen": [
+      {"w": "noise", "d": 0.35, "v": 0.035, "hp": 1200, "lp": 5000, "trem": [9, 0.8]},
+      {"f": 61, "d": 0.6, "v": 0.06, "a": 0.05}
+    ]
+  }
+}

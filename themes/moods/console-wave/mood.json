@@ -1,0 +1,14 @@
+{
+  "name": "Console wave",
+  "description": "Ribbons of light rolling behind a clean menu, like an old games console.",
+  "author": "SOFA King",
+  "order": 16,
+  "colors": "cross-bar",
+  "fonts": {
+    "display": "clean",
+    "text": "clean"
+  },
+  "sounds": "classic",
+  "effects": [],
+  "background": "ps3-wave"
+}

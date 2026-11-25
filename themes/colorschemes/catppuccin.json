@@ -1,0 +1,25 @@
+{
+  "name": "Catppuccin Mocha",
+  "description": "Soft pastel lavender, pink and sky blue on a deep navy.",
+  "author": "SOFA King",
+  "order": 5,
+  "colors": {
+    "bg": "#1e1e2e",
+    "surface": "#29293d",
+    "surface2": "#313244",
+    "line": "#45475a",
+    "text": "#cdd6f4",
+    "textSoft": "#bac2de",
+    "muted": "#a6adc8",
+    "faint": "#7f849c",
+    "focus": "#cba6f7",
+    "onFocus": "#1e1e2e",
+    "onFocusSoft": "#45375f",
+    "accent": "#89dceb",
+    "gold": "#f9e2af",
+    "good": "#a6e3a1",
+    "bad": "#f38ba8",
+    "glow1": "#35284a",
+    "glow2": "#1d3346"
+  }
+}

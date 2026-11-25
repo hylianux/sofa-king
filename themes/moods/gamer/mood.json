@@ -1,0 +1,16 @@
+{
+  "name": "Gamer",
+  "description": "A neon terminal: green-on-black, old computer lettering, 8-bit blips and scanlines.",
+  "author": "SOFA King",
+  "order": 9,
+  "colors": "terminal",
+  "fonts": {
+    "display": "vt323",
+    "text": "share-tech"
+  },
+  "sounds": "8-bit",
+  "effects": [
+    "scanlines"
+  ],
+  "background": ""
+}

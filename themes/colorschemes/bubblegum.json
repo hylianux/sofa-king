@@ -1,0 +1,26 @@
+{
+  "name": "Bubblegum",
+  "description": "Pink, lilac and a little sparkle.",
+  "author": "SOFA King",
+  "order": 22,
+  "light": true,
+  "colors": {
+    "bg": "#fff0f6",
+    "surface": "#ffffff",
+    "surface2": "#ffd9ea",
+    "line": "#f5b8d3",
+    "text": "#4a1235",
+    "textSoft": "#6e2a55",
+    "muted": "#9a5a80",
+    "faint": "#bf8aa8",
+    "focus": "#e0408f",
+    "onFocus": "#ffffff",
+    "onFocusSoft": "#ffd9ea",
+    "accent": "#b54bd6",
+    "gold": "#c98a00",
+    "good": "#1f9d6a",
+    "bad": "#d6334b",
+    "glow1": "#ffc6e3",
+    "glow2": "#e8d4ff"
+  }
+}

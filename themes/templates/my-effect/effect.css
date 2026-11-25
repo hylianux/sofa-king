@@ -1,0 +1,27 @@
+/* An effect draws over every screen, on a full-screen box of its own: .fx-<id>.
+   Change "my-effect" below to your effect's id (its folder name).
+   You can draw on the box itself, and on its ::before and ::after: three layers in all.
+   (Nothing you draw can be clicked or get in the way: the app takes care of that.)
+
+   To loop seamlessly, make the last frame of an animation the same as the first:
+   - slide a repeating picture by exactly one repeat (its background-size), or
+   - go to and fro with "alternate", or
+   - use keyframes that end where they started (0% and 100% the same).
+   Move things with transform and opacity only: they're the cheapest for the TV to draw. */
+
+/* Example: small dots of the highlight colour rising slowly. The picture repeats every 300 px
+   and the layer rises exactly 300 px per loop, so there's no jump. */
+.fx-my-effect::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: -300px; will-change: transform;
+  background-image:
+    radial-gradient(3px 3px at 60px 80px, rgba(var(--accent-rgb), 0.6), transparent),
+    radial-gradient(2px 2px at 210px 230px, rgba(var(--accent-rgb), 0.45), transparent);
+  background-size: 300px 300px;
+  animation: my-effect-rise 30s linear infinite;
+}
+@keyframes my-effect-rise { to { transform: translateY(-300px); } }
+
+/* An effect can also change how things look while it's on: the page gets the class with-<id>.
+   For example, rounder pictures:
+body.with-my-effect .card .poster { border-radius: 20px; }
+*/

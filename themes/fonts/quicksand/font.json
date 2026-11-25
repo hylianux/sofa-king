@@ -1,0 +1,11 @@
+{
+  "name": "Quicksand",
+  "description": "Light, airy and rounded.",
+  "order": 4,
+  "family": "Quicksand",
+  "files": {
+    "400": "quicksand-400.woff2",
+    "700": "quicksand-700.woff2"
+  },
+  "license": "OFL-1.1"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Paper",
+  "description": "Warm sketchbook paper, ink and a splash of vermilion.",
+  "author": "SOFA King",
+  "order": 21,
+  "light": true,
+  "colors": {
+    "bg": "#f3efe6",
+    "surface": "#fffdf8",
+    "surface2": "#e9e2d3",
+    "line": "#d3c8b2",
+    "text": "#24201b",
+    "textSoft": "#3e3830",
+    "muted": "#6b6357",
+    "faint": "#958c7d",
+    "focus": "#24201b",
+    "onFocus": "#fffdf8",
+    "onFocusSoft": "#cfc6b4",
+    "accent": "#e0533d",
+    "gold": "#b07d10",
+    "good": "#3c8a4e",
+    "bad": "#c8372b",
+    "glow1": "#f5d6c8",
+    "glow2": "#cfe3ea"
+  }
+}

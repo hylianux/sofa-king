@@ -1,0 +1,11 @@
+{
+  "name": "Playfair Display",
+  "description": "An elegant, high-contrast serif, like a gallery or magazine.",
+  "order": 7,
+  "family": "Playfair Display",
+  "files": {
+    "400": "playfair-display-400.woff2",
+    "700": "playfair-display-700.woff2"
+  },
+  "license": "OFL-1.1"
+}

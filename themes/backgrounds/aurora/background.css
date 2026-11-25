@@ -1,0 +1,20 @@
+/* Aurora: two curtains of colour near the top, swaying to and fro (and back again: no jump). */
+.bg-aurora { background: linear-gradient(180deg, var(--glow-2), var(--bg) 65%); }
+.bg-aurora::before, .bg-aurora::after {
+  content: ''; position: absolute; left: -25%; right: -25%; top: -15%; height: 70%; will-change: transform;
+  background:
+    radial-gradient(35% 45% at 30% 60%, rgba(61, 220, 132, 0.22), transparent 70%),
+    radial-gradient(30% 40% at 55% 45%, rgba(var(--accent-rgb), 0.2), transparent 70%),
+    radial-gradient(30% 50% at 78% 55%, rgba(150, 90, 255, 0.18), transparent 70%);
+  transform-origin: 50% 0;
+  animation: bg-aurora-a 22s ease-in-out infinite alternate;
+}
+.bg-aurora::after {
+  top: -5%; height: 60%;
+  background:
+    radial-gradient(30% 35% at 20% 50%, rgba(var(--accent-rgb), 0.14), transparent 70%),
+    radial-gradient(40% 45% at 62% 60%, rgba(61, 220, 132, 0.16), transparent 70%);
+  animation: bg-aurora-b 30s ease-in-out infinite alternate;
+}
+@keyframes bg-aurora-a { from { transform: translateX(-6%) skewX(-8deg) scaleY(0.9); } to { transform: translateX(6%) skewX(8deg) scaleY(1.1); } }
+@keyframes bg-aurora-b { from { transform: translateX(5%) skewX(6deg) scaleY(1.05); } to { transform: translateX(-5%) skewX(-6deg) scaleY(0.92); } }

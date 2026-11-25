@@ -1,0 +1,76 @@
+/* PlayStation 5 style: one row of square tiles at the top (oneRowAtATime: true), the selected
+   title's picture full-screen behind everything, its details underneath.
+
+   Every rule starts with body.layout-ps5, so it only applies while this layout is chosen. */
+
+body.layout-ps5 #view-home .searchbar { display: none; }
+
+body.layout-ps5 .hero-search { display: grid; }
+
+body.layout-ps5 .row:not(.active) { display: none; }
+
+body.layout-ps5 .rows { flex: none; overflow: visible; }
+
+body.layout-ps5 .row { margin: 0; }
+
+/* Room above the tiles, so the selected one (which grows) stays clear of the row's name. */
+body.layout-ps5 .row h2 { margin-bottom: 1.4rem; }
+
+body.layout-ps5 .row-cards .card { width: 8.4rem; }
+
+body.layout-ps5 .row-cards .card .poster { aspect-ratio: 1 / 1; border-radius: 16px; }
+
+body.layout-ps5 .row-cards .card:focus .poster { transform: scale(1.14); }
+
+body.layout-ps5 .row-cards .card .name,
+body.layout-ps5 .row-cards .card .sub { visibility: hidden; }
+
+/* The selected tile's name shows in full under it (with room left for it below the row). */
+body.layout-ps5 .row-cards .card:focus .name { visibility: visible; overflow: visible; white-space: nowrap; -webkit-line-clamp: unset; display: block; }
+body.layout-ps5 .row-cards { padding-bottom: 0.4rem; }
+body.layout-ps5 .row-cards .card .poster { margin-bottom: 1.1rem; }
+body.layout-ps5 #view-home .hero { margin-top: 0.4rem; }
+
+body.layout-ps5 .row-end { width: 8.4rem; aspect-ratio: 1 / 1; }
+
+body.layout-ps5 .hero { display: block; position: static; height: auto; margin: 0; padding: 0; overflow: visible; }
+
+body.layout-ps5 .hero-art {
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 95%); mask-image: linear-gradient(180deg, #000 30%, transparent 95%);
+}
+
+body.layout-ps5 .hero-art.shown { opacity: 0.42; }
+
+/* The tiles and details sit above the picture behind everything (the details come after the
+   tiles on screen, so without this the picture would be drawn over the tiles). */
+body.layout-ps5 .hero-art { pointer-events: none; }
+body.layout-ps5 #view-home .rows { position: relative; z-index: 2; }
+body.layout-ps5 .hero-text { position: relative; z-index: 1; }
+
+body.layout-ps5 #screen-home > * { position: relative; z-index: 1; }
+
+body.layout-ps5 .hero-text h2 { font-size: 2.8rem; }
+
+body.layout-ps5 #view-home { display: flex; flex-direction: column; }
+
+body.layout-ps5 #view-home .rows { order: 1; }
+
+body.layout-ps5 #view-home .hero { order: 2; }
+
+/* The "more rows" hints: above the row, and below the details (above the button prompts). */
+body.layout-ps5 #view-home .row-hint.up { order: 0; }
+body.layout-ps5 #view-home .row-hint.down { order: 3; margin-top: auto; }
+
+body.layout-ps5 .hero-row { display: none; }
+
+/* The details sit right under the tiles, and never run past the button prompts: they take the
+   room that's left, one line each for the title and details, up to three for the overview, and
+   anything longer is cut short with "…" (the title's page has it all). */
+body.layout-ps5 #view-home .hero { flex: 1 1 auto; min-height: 0; overflow: hidden; margin-top: -0.8rem; }
+body.layout-ps5 .hero-text h2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; margin: 0 0 0.3rem; }
+body.layout-ps5 .hero-meta { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.layout-ps5 .hero-meta > span { flex: none; }
+body.layout-ps5 .hero-overview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; max-width: 46rem; }
+body.layout-ps5 .hero-chips { flex-wrap: nowrap; overflow: hidden; }
+body.layout-ps5 .hero-chips span { flex: none; }

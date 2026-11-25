@@ -1,0 +1,11 @@
+{
+  "name": "Big posters",
+  "description": "One row at a time, with large posters and their names underneath.",
+  "author": "SOFA King",
+  "order": 3,
+  "behavior": {
+    "bigCards": true,
+    "rowScroll": "start",
+    "rowsPerScreen": 1
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Nord",
+  "description": "Nord's cool arctic blues and soft frost highlights.",
+  "author": "SOFA King",
+  "order": 3,
+  "colors": {
+    "bg": "#2e3440",
+    "surface": "#3b4252",
+    "surface2": "#434c5e",
+    "line": "#4c566a",
+    "text": "#eceff4",
+    "textSoft": "#d8dee9",
+    "muted": "#a3adc2",
+    "faint": "#7b879c",
+    "focus": "#88c0d0",
+    "onFocus": "#2e3440",
+    "onFocusSoft": "#3b4252",
+    "accent": "#81a1c1",
+    "gold": "#ebcb8b",
+    "good": "#a3be8c",
+    "bad": "#bf616a",
+    "glow1": "#3a4660",
+    "glow2": "#2f4a52"
+  }
+}

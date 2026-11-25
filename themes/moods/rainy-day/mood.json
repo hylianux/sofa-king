@@ -1,0 +1,17 @@
+{
+  "name": "Rainy day",
+  "description": "Grey skies, gentle rain on the glass, and quiet, soft sounds.",
+  "author": "SOFA King",
+  "order": 13,
+  "colors": "fog",
+  "fonts": {
+    "display": "quicksand",
+    "text": "quicksand"
+  },
+  "sounds": "soft",
+  "effects": [
+    "rain"
+  ],
+  "background": "",
+  "instrument": "piano"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Pacifico",
+  "description": "A chunky retro brush script.",
+  "order": 10,
+  "family": "Pacifico",
+  "files": {
+    "400": "pacifico-400.woff2"
+  },
+  "scale": 92,
+  "license": "OFL-1.1"
+}

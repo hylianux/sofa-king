@@ -1,0 +1,13 @@
+/* Flowing colours: a band of the scheme's colours that starts and ends on the same colour, twice
+   the screen wide, sliding exactly one band per loop (so it never jumps). Tilted a little. */
+.bg-flowing-gradient { background: var(--bg); }
+.bg-flowing-gradient::before {
+  content: ''; position: absolute; top: -40%; bottom: -40%; left: -20%; width: calc(140% + 100vw); will-change: transform;
+  background: linear-gradient(90deg, var(--glow-1), rgba(var(--accent-rgb), 0.22), var(--glow-2), rgba(var(--gold-rgb), 0.12), var(--glow-1));
+  background-size: 100vw 100%;
+  transform-origin: 50% 50%;
+  animation: bg-flow 50s linear infinite;
+}
+/* Fades it into the plain background at the bottom, so text stays easy to read. */
+.bg-flowing-gradient::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, rgba(var(--bg-rgb), 0.75)); }
+@keyframes bg-flow { from { transform: rotate(-12deg) translateX(0); } to { transform: rotate(-12deg) translateX(-100vw); } }

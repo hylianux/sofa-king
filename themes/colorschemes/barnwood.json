@@ -1,0 +1,25 @@
+{
+  "name": "Barnwood",
+  "description": "Dark wood, parchment and copper, with a little denim.",
+  "author": "SOFA King",
+  "order": 19,
+  "colors": {
+    "bg": "#1f140c",
+    "surface": "#2c1d12",
+    "surface2": "#3a2718",
+    "line": "#5a3d25",
+    "text": "#f3e6cf",
+    "textSoft": "#dccaa8",
+    "muted": "#b39b78",
+    "faint": "#85704f",
+    "focus": "#f3e6cf",
+    "onFocus": "#2c1d12",
+    "onFocusSoft": "#6a4d30",
+    "accent": "#d98c3a",
+    "gold": "#e8b04b",
+    "good": "#9cc46b",
+    "bad": "#e0583a",
+    "glow1": "#4a2a12",
+    "glow2": "#23303a"
+  }
+}

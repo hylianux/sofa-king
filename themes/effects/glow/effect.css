@@ -1,0 +1,7 @@
+/* A soft glow in the highlight colour that breathes slowly. */
+.fx-glow::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(60% 50% at 50% 110%, rgba(var(--accent-rgb), 0.18), transparent 70%);
+  animation: fx-breathe 4.5s ease-in-out infinite alternate;
+}
+@keyframes fx-breathe { from { opacity: 0.5; } to { opacity: 1; } }

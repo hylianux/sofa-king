@@ -1,0 +1,13 @@
+/* Bubbles: rings with a shine, rising whole tiles so the loop is seamless. */
+.fx-bubbles::before, .fx-bubbles::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: -420px; will-change: transform;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><g fill='none' stroke='white'><circle cx='70' cy='90' r='14' stroke-opacity='.35'/><circle cx='290' cy='260' r='22' stroke-opacity='.3'/><circle cx='350' cy='60' r='9' stroke-opacity='.35'/></g><g fill='white' fill-opacity='.4'><circle cx='64' cy='84' r='3'/><circle cx='281' cy='251' r='4'/><circle cx='347' cy='57' r='2'/></g></svg>");
+  background-size: 420px 420px;
+  animation: fx-bubbles-a 26s linear infinite;
+}
+.fx-bubbles::after {
+  bottom: -630px; background-size: 630px 630px; background-position: 200px 120px; opacity: 0.7;
+  animation-name: fx-bubbles-b; animation-duration: 34s;
+}
+@keyframes fx-bubbles-a { to { transform: translateY(-420px); } }
+@keyframes fx-bubbles-b { to { transform: translateY(-630px); } }

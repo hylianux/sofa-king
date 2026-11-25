@@ -1,0 +1,25 @@
+{
+  "name": "Netflix red",
+  "description": "Black with Netflix's red highlight.",
+  "author": "SOFA King",
+  "order": 9,
+  "colors": {
+    "bg": "#0a0a0a",
+    "surface": "#181818",
+    "surface2": "#232323",
+    "line": "#3a3a3a",
+    "text": "#ffffff",
+    "textSoft": "#d2d2d2",
+    "muted": "#a3a3a3",
+    "faint": "#6d6d6d",
+    "focus": "#ffffff",
+    "onFocus": "#0a0a0a",
+    "onFocusSoft": "#4a4a4a",
+    "accent": "#e50914",
+    "gold": "#f5c518",
+    "good": "#46d369",
+    "bad": "#ff5a5f",
+    "glow1": "#2a0a0c",
+    "glow2": "#141414"
+  }
+}

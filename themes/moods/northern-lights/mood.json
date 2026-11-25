@@ -1,0 +1,20 @@
+{
+  "name": "Northern lights",
+  "description": "Arctic blues, the aurora swaying overhead and a little snow.",
+  "author": "SOFA King",
+  "order": 15,
+  "colors": "nord",
+  "fonts": {
+    "display": "quicksand",
+    "text": "nunito"
+  },
+  "sounds": "soft",
+  "instrument": "celesta",
+  "effects": [
+    "snow"
+  ],
+  "background": "aurora",
+  "soundFx": [
+    "delay"
+  ]
+}

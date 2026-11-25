@@ -1,0 +1,17 @@
+{
+  "name": "Big view",
+  "description": "Netflix-style: the selected title fills the top of the screen with its picture, score and where to watch it. Left and right change title; up and down change row.",
+  "author": "SOFA King",
+  "order": 1,
+  "colors": "netflix",
+  "behavior": {
+    "featured": true,
+    "widenSelected": true,
+    "rowKeys": "up-down",
+    "rowScroll": "start",
+    "oneRowAtATime": true,
+    "rowsPerScreen": 1,
+    "carousel": true,
+    "moreAt": "title"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "VT323",
+  "description": "An old computer terminal.",
+  "order": 15,
+  "family": "VT323",
+  "files": {
+    "400": "vt323-400.woff2"
+  },
+  "scale": 135,
+  "license": "OFL-1.1"
+}

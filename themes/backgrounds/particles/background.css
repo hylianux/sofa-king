@@ -1,0 +1,17 @@
+/* Particles: two layers of soft specks in the highlight colour, rising whole tiles per loop. */
+.bg-particles { background: radial-gradient(ellipse at 50% 110%, var(--glow-1), transparent 65%), var(--bg); }
+.bg-particles::before, .bg-particles::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: -320px; will-change: transform;
+  background-image:
+    radial-gradient(3px 3px at 50px 70px, rgba(var(--accent-rgb), 0.5), transparent),
+    radial-gradient(2px 2px at 230px 220px, rgba(var(--ink), 0.35), transparent),
+    radial-gradient(3px 3px at 280px 40px, rgba(var(--accent-rgb), 0.35), transparent);
+  background-size: 320px 320px;
+  animation: bg-motes-a 40s linear infinite;
+}
+.bg-particles::after {
+  bottom: -480px; background-size: 480px 480px; background-position: 140px 260px; opacity: 0.7;
+  animation-name: bg-motes-b; animation-duration: 28s;
+}
+@keyframes bg-motes-a { to { transform: translateY(-320px); } }
+@keyframes bg-motes-b { to { transform: translateY(-480px); } }

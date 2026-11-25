@@ -1,0 +1,25 @@
+{
+  "name": "Rose",
+  "description": "Deep wine red with soft pink highlights.",
+  "author": "SOFA King",
+  "order": 13,
+  "colors": {
+    "bg": "#1e0a12",
+    "surface": "#2c1019",
+    "surface2": "#3a1522",
+    "line": "#5a2438",
+    "text": "#ffeef3",
+    "textSoft": "#f3cfdb",
+    "muted": "#c993a6",
+    "faint": "#94627a",
+    "focus": "#ffd6e2",
+    "onFocus": "#3a0d1e",
+    "onFocusSoft": "#8a4060",
+    "accent": "#ff5c8a",
+    "gold": "#ffc46b",
+    "good": "#7be0a6",
+    "bad": "#ff6b6b",
+    "glow1": "#5a1530",
+    "glow2": "#3a0f2a"
+  }
+}

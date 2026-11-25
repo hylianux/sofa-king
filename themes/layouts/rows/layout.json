@@ -1,0 +1,10 @@
+{
+  "name": "Rows",
+  "description": "Several rows of posters on screen at once. Move freely in any direction.",
+  "author": "SOFA King",
+  "order": 2,
+  "behavior": {
+    "rowsPerScreen": 2,
+    "rowScroll": "start"
+  }
+}

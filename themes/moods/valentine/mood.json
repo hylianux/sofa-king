@@ -1,0 +1,16 @@
+{
+  "name": "Valentine",
+  "description": "Wine and rose, flowing handwriting, a music box and a heartbeat.",
+  "author": "SOFA King",
+  "order": 2,
+  "colors": "rose",
+  "fonts": {
+    "display": "dancing-script",
+    "text": "quicksand"
+  },
+  "sounds": "sweet",
+  "effects": [
+    "glow"
+  ],
+  "background": ""
+}

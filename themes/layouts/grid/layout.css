@@ -1,0 +1,25 @@
+/* Grid (Roku / Apple TV style): each row fills the screen with wide tiles: as many columns as fit
+   across, as many lines as fit down (fillScreen: true), with More as the last tile.
+   widePictures: true swaps the posters for 16:9 pictures.
+
+   Every rule starts with body.layout-grid, so it only applies while this layout is chosen. */
+
+body.layout-grid .row-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 0.7rem 1.1rem;
+  overflow: visible;
+}
+
+body.layout-grid .row-cards .card { width: auto; }
+
+body.layout-grid .row-cards .card .poster { aspect-ratio: 16 / 9; }
+
+body.layout-grid .row-cards .card .name { font-size: 0.95rem; -webkit-line-clamp: 1; }
+
+body.layout-grid .row { margin-bottom: 1.8rem; }
+
+/* More is the tenth tile: an arrow, with "More" under it. */
+body.layout-grid .row-end { width: auto; aspect-ratio: auto; display: block; }
+body.layout-grid .row-end .more-btn {
+  width: 100%; aspect-ratio: 16 / 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
+}
+body.layout-grid .row-end .more-btn:focus { transform: scale(1.06); }

@@ -1,0 +1,13 @@
+/* Confetti: little coloured pieces falling whole tiles, so the loop is seamless. */
+.fx-confetti::before, .fx-confetti::after {
+  content: ''; position: absolute; top: -360px; left: 0; right: 0; bottom: 0; will-change: transform;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='360'><g fill-opacity='.75'><rect x='40' y='50' width='10' height='5' fill='%23ff5c8a' transform='rotate(30 45 52)'/><rect x='170' y='140' width='9' height='5' fill='%2339d0ff' transform='rotate(-40 174 142)'/><rect x='300' y='30' width='10' height='5' fill='%23ffd23f' transform='rotate(70 305 32)'/><rect x='250' y='280' width='9' height='5' fill='%2339ff88' transform='rotate(15 254 282)'/><rect x='90' y='250' width='10' height='5' fill='%23b57cff' transform='rotate(-65 95 252)'/></g></svg>");
+  background-size: 360px 360px;
+  animation: fx-confetti-a 16s linear infinite;
+}
+.fx-confetti::after {
+  top: -540px; background-size: 540px 540px; background-position: 120px 200px; opacity: 0.8;
+  animation-name: fx-confetti-b; animation-duration: 12s;
+}
+@keyframes fx-confetti-a { to { transform: translateY(360px); } }
+@keyframes fx-confetti-b { to { transform: translateY(540px); } }

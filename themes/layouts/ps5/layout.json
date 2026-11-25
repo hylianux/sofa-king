@@ -1,0 +1,12 @@
+{
+  "name": "PlayStation 5",
+  "description": "One row of square tiles across the top, with the selected title's art behind everything and its details below.",
+  "author": "SOFA King",
+  "order": 5,
+  "colors": "playstation",
+  "behavior": {
+    "featured": true,
+    "rowKeys": "up-down",
+    "oneRowAtATime": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Steel & fire",
+  "description": "Black steel with fire-orange highlights.",
+  "author": "SOFA King",
+  "order": 18,
+  "colors": {
+    "bg": "#0a0a0a",
+    "surface": "#161616",
+    "surface2": "#222222",
+    "line": "#3a3a3a",
+    "text": "#ececec",
+    "textSoft": "#cfcfcf",
+    "muted": "#9a9a9a",
+    "faint": "#666666",
+    "focus": "#ff3d00",
+    "onFocus": "#000000",
+    "onFocusSoft": "#5a1500",
+    "accent": "#ff6a00",
+    "gold": "#ffb300",
+    "good": "#7cdc5a",
+    "bad": "#ff2d2d",
+    "glow1": "#3a0a00",
+    "glow2": "#1a1a1a"
+  }
+}

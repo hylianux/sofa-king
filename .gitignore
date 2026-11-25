@@ -1,0 +1,4 @@
+node_modules/
+dev/tests/out/
+CLAUDE.md
+dist/

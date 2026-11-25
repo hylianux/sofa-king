@@ -1,0 +1,12 @@
+[
+  {"id": "store-amazon", "name": "Amazon Video", "url": "https://www.amazon.com/gp/video/storefront",
+    "searchUrl": "https://www.amazon.com/s?k={q}&i=instant-video", "match": "^Amazon( Video)?$"},
+  {"id": "store-apple", "name": "Apple TV Store", "url": "https://tv.apple.com",
+    "searchUrl": "https://tv.apple.com/search?term={q}", "match": "^(Apple TV Store|Apple iTunes)$"},
+  {"id": "store-google", "name": "Google Play Movies", "url": "https://play.google.com/store/movies",
+    "searchUrl": "https://play.google.com/store/search?q={q}&c=movies", "match": "^Google Play Movies"},
+  {"id": "store-fandango", "name": "Fandango at Home", "url": "https://athome.fandango.com",
+    "match": "^(Fandango at Home|Vudu)"},
+  {"id": "store-microsoft", "name": "Microsoft Store", "url": "https://www.microsoft.com/store/movies-and-tv",
+    "match": "^Microsoft Store"}
+]

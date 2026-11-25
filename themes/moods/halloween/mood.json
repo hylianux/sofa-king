@@ -1,0 +1,16 @@
+{
+  "name": "Halloween",
+  "description": "Pumpkin orange and midnight purple, drippy letters, theremins and creaky doors.",
+  "author": "SOFA King",
+  "order": 5,
+  "colors": "pumpkin",
+  "fonts": {
+    "display": "creepster",
+    "text": "nunito"
+  },
+  "sounds": "haunted",
+  "effects": [
+    "mist"
+  ],
+  "background": ""
+}

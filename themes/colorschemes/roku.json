@@ -1,0 +1,25 @@
+{
+  "name": "Roku purple",
+  "description": "Roku's purple with a bright white highlight.",
+  "author": "SOFA King",
+  "order": 12,
+  "colors": {
+    "bg": "#1b0b2e",
+    "surface": "#2a1446",
+    "surface2": "#371c5a",
+    "line": "#5a3787",
+    "text": "#ffffff",
+    "textSoft": "#e2d4f5",
+    "muted": "#b9a3d8",
+    "faint": "#8a73ab",
+    "focus": "#ffffff",
+    "onFocus": "#1b0b2e",
+    "onFocusSoft": "#5a3787",
+    "accent": "#b57cff",
+    "gold": "#ffcf5c",
+    "good": "#5fe0a0",
+    "bad": "#ff7a90",
+    "glow1": "#4a1f80",
+    "glow2": "#2a0f4d"
+  }
+}

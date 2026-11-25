@@ -1,0 +1,12 @@
+{
+  "name": "Grid",
+  "description": "Roku and Apple TV style: wide picture tiles in a grid, a section at a time.",
+  "author": "SOFA King",
+  "order": 4,
+  "behavior": {
+    "widePictures": true,
+    "fillScreen": true,
+    "rowScroll": "start"
+  },
+  "colors": "roku"
+}

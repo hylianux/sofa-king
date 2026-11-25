@@ -1,0 +1,15 @@
+/* My layout.
+   Rename this folder to your layout's id (lower-case letters, numbers and dashes, e.g. "apple-tv"),
+   and change "my-layout" below to match. Every rule starts with body.layout-<id>, so it only
+   applies while your layout is chosen.
+
+   You start from the "Rows" layout. Use colours from the scheme (var(--accent), var(--text) ...)
+   rather than fixed ones, so your layout works with every colour scheme.
+   Pictures can only come from data: URLs; anything that would load from the internet is removed. */
+
+/* Example: slightly bigger posters, with rounder corners */
+body.layout-my-layout .row-cards .card { width: 9rem; }
+body.layout-my-layout .row-cards .card .poster { border-radius: 20px; }
+
+/* Example: the row names in the accent colour */
+body.layout-my-layout .row h2 { color: var(--accent); }

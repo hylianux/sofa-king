@@ -1,0 +1,16 @@
+{
+  "name": "Playtime",
+  "description": "For kids: bright colours, big bubbly letters, pops and boings.",
+  "author": "SOFA King",
+  "order": 3,
+  "colors": "playtime",
+  "fonts": {
+    "display": "fredoka",
+    "text": "fredoka"
+  },
+  "sounds": "bubbles",
+  "effects": [
+    "rounder"
+  ],
+  "background": ""
+}

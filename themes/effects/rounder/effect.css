@@ -1,0 +1,3 @@
+/* Rounder everything. (This one draws nothing: it changes the shape of things, using the class
+   the body gets while it's on.) */
+body.with-rounder .card .poster, body.with-rounder .pill, body.with-rounder .tab { border-radius: 22px; }

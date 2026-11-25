@@ -1,0 +1,17 @@
+{
+  "name": "My layout",
+  "description": "One sentence about what it looks like and how you move around it.",
+  "author": "Your name",
+  "order": 50,
+  "colors": "",
+  "behavior": {
+    "featured": false,
+    "widenSelected": false,
+    "rowKeys": "free",
+    "oneRowAtATime": false,
+    "sectionBar": false,
+    "widePictures": false,
+    "bigCards": false,
+    "rowScroll": "nearest"
+  }
+}

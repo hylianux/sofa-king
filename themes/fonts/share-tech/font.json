@@ -1,0 +1,11 @@
+{
+  "name": "Share Tech",
+  "description": "Squared-off and techy.",
+  "order": 6,
+  "family": "Share Tech",
+  "files": {
+    "400": "share-tech-400.woff2"
+  },
+  "scale": 105,
+  "license": "OFL-1.1"
+}

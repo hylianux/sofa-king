@@ -1,0 +1,17 @@
+/* A background sits behind every screen, on a full-screen box of its own: .bg-<id>.
+   Change "my-background" below to your background's id (its folder name).
+   Draw on the box itself (usually a colour or gradient that fills the screen) and on its ::before
+   and ::after. Keep it dim and slow: text has to stay easy to read on top of it.
+
+   To loop seamlessly, make the last frame the same as the first (see the effect template), and
+   move things with transform and opacity only. */
+
+/* Example: the scheme's background colour, and a soft glow in the highlight colour drifting to and
+   fro ("alternate" goes back the way it came, so there's no jump). */
+.bg-my-background { background: var(--bg); }
+.bg-my-background::before {
+  content: ''; position: absolute; inset: -20%; will-change: transform;
+  background: radial-gradient(35% 35% at 30% 40%, rgba(var(--accent-rgb), 0.18), transparent 70%);
+  animation: my-background-drift 30s ease-in-out infinite alternate;
+}
+@keyframes my-background-drift { from { transform: translate(-5%, -3%); } to { transform: translate(8%, 5%); } }

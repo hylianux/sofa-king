@@ -1,0 +1,9 @@
+/* Mist drifting to and fro along the bottom, in the highlight colour and a purple. */
+.fx-mist::after {
+  content: ''; position: absolute; left: -20%; right: -20%; bottom: -10%; height: 45%; will-change: transform;
+  background:
+    radial-gradient(40% 60% at 30% 80%, rgba(var(--accent-rgb), 0.14), transparent 70%),
+    radial-gradient(45% 55% at 70% 90%, rgba(140, 60, 200, 0.18), transparent 70%);
+  animation: fx-mist 16s ease-in-out infinite alternate;
+}
+@keyframes fx-mist { from { transform: translateX(-6%); } to { transform: translateX(6%); } }

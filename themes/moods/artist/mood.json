@@ -1,0 +1,16 @@
+{
+  "name": "Artist",
+  "description": "Sketchbook paper and ink, an elegant serif, pencil ticks and page turns.",
+  "author": "SOFA King",
+  "order": 10,
+  "colors": "paper",
+  "fonts": {
+    "display": "playfair-display",
+    "text": "clean"
+  },
+  "sounds": "studio",
+  "effects": [
+    "paper"
+  ],
+  "background": ""
+}

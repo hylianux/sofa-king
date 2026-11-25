@@ -1,0 +1,26 @@
+{
+  "name": "Playtime",
+  "description": "Bright and cheerful: cream, sunshine and sky blue.",
+  "author": "SOFA King",
+  "order": 14,
+  "light": true,
+  "colors": {
+    "bg": "#fff7e6",
+    "surface": "#ffffff",
+    "surface2": "#ffeec4",
+    "line": "#f2d48a",
+    "text": "#2b2250",
+    "textSoft": "#40366e",
+    "muted": "#6a6191",
+    "faint": "#948cb5",
+    "focus": "#ff5aa8",
+    "onFocus": "#ffffff",
+    "onFocusSoft": "#ffe0ef",
+    "accent": "#2f8cff",
+    "gold": "#e08a00",
+    "good": "#1fa463",
+    "bad": "#e5383b",
+    "glow1": "#ffd36e",
+    "glow2": "#8be0ff"
+  }
+}

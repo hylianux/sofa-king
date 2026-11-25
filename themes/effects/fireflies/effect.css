@@ -1,0 +1,24 @@
+/* Fireflies: two sets of soft dots that wander in a slow loop and take turns to light up. */
+.fx-fireflies::before, .fx-fireflies::after {
+  content: ''; position: absolute; inset: -40px; will-change: transform, opacity;
+  background-image:
+    radial-gradient(10px 10px at 14% 70%, rgba(255, 230, 120, 0.9), transparent),
+    radial-gradient(8px 8px at 33% 40%, rgba(220, 255, 140, 0.8), transparent),
+    radial-gradient(10px 10px at 61% 82%, rgba(255, 230, 120, 0.85), transparent),
+    radial-gradient(8px 8px at 86% 35%, rgba(220, 255, 140, 0.8), transparent);
+  animation: fx-ff-wander 14s ease-in-out infinite, fx-ff-blink 3.5s ease-in-out infinite alternate;
+}
+.fx-fireflies::after {
+  background-image:
+    radial-gradient(8px 8px at 22% 22%, rgba(220, 255, 140, 0.8), transparent),
+    radial-gradient(10px 10px at 48% 62%, rgba(255, 230, 120, 0.85), transparent),
+    radial-gradient(8px 8px at 74% 18%, rgba(255, 230, 120, 0.8), transparent),
+    radial-gradient(10px 10px at 92% 76%, rgba(220, 255, 140, 0.85), transparent);
+  animation-duration: 18s, 3.5s; animation-delay: -6s, -3.5s; animation-direction: reverse, alternate;
+}
+/* (The wander ends where it started, so it loops without a jump.) */
+@keyframes fx-ff-wander {
+  0%, 100% { transform: translate(0, 0); } 25% { transform: translate(18px, -14px); }
+  50% { transform: translate(-8px, -26px); } 75% { transform: translate(-20px, -6px); }
+}
+@keyframes fx-ff-blink { from { opacity: 0.1; } to { opacity: 1; } }
