@@ -4009,6 +4009,61 @@ function scrollRowsTo(from, to) {
   requestAnimationFrame(step);
 }
 
+// The Genres grid and All genres: moving up or down glides the tiles into place (eased, a little
+// slower than the rows), instead of the jump the browser makes. Holding the D-pad keeps it flowing:
+// each move starts from wherever the last one had got to. A tile at the top of its group brings
+// the group's name into view with it; the first and last rows go all the way to the ends.
+const GLIDE_MS = 280;
+const glideBoxes = () => [$('genre-grid'), $('allgenres-body')];
+for (const box of glideBoxes()) box.dataset.ownScroll = ''; // (nav's "show the ends" jump stays out)
+let glideBefore = null;
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const box = glideBoxes().find((b) => b.contains(document.activeElement));
+  glideBefore = box ? { box, top: box.scrollTop } : null;
+}, true);
+const glides = new WeakMap();
+for (const box of glideBoxes()) {
+  box.addEventListener('focusin', (e) => {
+    const tile = e.target.closest('.genre, button');
+    if (!tile) return;
+    const from = glideBefore && glideBefore.box === box ? glideBefore.top : null;
+    glideBefore = null;
+    if (from == null) return; // (not an up/down move: leave it be)
+    requestAnimationFrame(() => {
+      const r = box.getBoundingClientRect();
+      const t = tile.getBoundingClientRect();
+      const margin = t.height * 0.35;
+      // The top edge to show: the group's name too, when the tile is in its group's first line.
+      const group = tile.closest('.genre-group');
+      const firstLine = group && Math.abs(t.top - group.querySelector('.genre').getBoundingClientRect().top) < 2;
+      const topEdge = (firstLine ? group.getBoundingClientRect().top : t.top - margin) - r.top + box.scrollTop;
+      const bottomEdge = t.bottom + margin - r.top + box.scrollTop;
+      const max = box.scrollHeight - box.clientHeight;
+      const tiles = [...box.querySelectorAll('.genre, .genre-grid > button')];
+      let target = box.scrollTop;
+      if (Math.abs(t.top - tiles[0].getBoundingClientRect().top) < 2) target = 0;
+      else if (Math.abs(t.top - tiles[tiles.length - 1].getBoundingClientRect().top) < 2) target = max;
+      else if (topEdge < box.scrollTop) target = topEdge;
+      else if (bottomEdge > box.scrollTop + box.clientHeight) target = bottomEdge - box.clientHeight;
+      target = Math.max(0, Math.min(max, target));
+      const id = (glides.get(box) || 0) + 1;
+      glides.set(box, id);
+      if (lessMotion() || Math.abs(target - from) < 2) { box.scrollTop = target; return; }
+      box.scrollTop = from;
+      const start = performance.now();
+      const ease = (x) => 1 - (1 - x) ** 3;
+      const step = (now) => {
+        if (glides.get(box) !== id) return;
+        const k = Math.min(1, (now - start) / GLIDE_MS);
+        box.scrollTop = from + (target - from) * ease(k);
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  });
+}
+
 // A row laid out as a list going down (the PS3 cross bar): the selected title sits at the top,
 // all the way down to More (the list has room after its end for that), and the list glides past
 // it, rather than jumping.
