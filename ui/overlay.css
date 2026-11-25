@@ -136,6 +136,17 @@ h1 {
   width: 100%; align-self: stretch; justify-content: flex-start; gap: 1rem;
   font-size: 1.3rem; padding: 1.05rem 1.4rem; border-radius: 14px;
 }
+/* Both answers look alike until chosen: the chosen one is lit up and ringed, the other fades back.
+   "Yes, quit" only turns red once it's chosen (a red button always looked chosen when it wasn't). */
+.confirm-actions .item, .confirm-actions .item.quit {
+  background: rgba(var(--ink), 0.08); color: var(--text); box-shadow: none; opacity: 0.5; transform: none;
+}
+.confirm-actions .item:focus {
+  background: var(--focus); color: var(--on-focus); opacity: 1; transform: scale(1.03);
+  box-shadow: 0 0 0 3px var(--bg-raised), 0 0 0 6px var(--focus);
+}
+.confirm-actions .item.quit:focus { background: var(--bad); color: #fff; box-shadow: 0 0 0 3px var(--bg-raised), 0 0 0 6px var(--bad); }
+.confirm-how { margin: 1.7rem 0 0; font-size: 1rem; color: var(--text-soft); text-align: center; }
 
 /* ------------------------------------------------------------ keyboard */
 

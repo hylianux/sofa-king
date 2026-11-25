@@ -31,7 +31,11 @@ function showMenu({ service }) {
 // Quitting asks first (the app tells us to show the question, and to drop it on Back).
 window.tv.onConfirmQuit((show) => {
   $('confirm-quit').hidden = !show;
-  if (show) $('cq-cancel').focus();
+  if (show) {
+    const name = (a, d) => (window.tvButtons && window.tvButtons.buttonFor(a)) || d;
+    $('confirm-quit').querySelector('.confirm-how').textContent = `Up / down to choose · ${name('ok', 'A')} to answer · ${name('back', 'B')}: keep going`;
+    $('cq-cancel').focus();
+  }
   else $('quit').focus();
 });
 

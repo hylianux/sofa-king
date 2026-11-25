@@ -257,7 +257,7 @@ These are the defaults. Change any of them in **Settings → Controller**: pick 
 
 Moving, choosing and going back make small sounds, on websites too. Turn them off with **Settings → Controller → Sound effects**.
 
-A real keyboard works everywhere too. **Quit SOFA King** is the last item in the menu, and asks before closing the whole program (Alt+F4 also quits).
+A real keyboard works everywhere too. **Quit SOFA King** is the last item in the menu, and asks before closing the whole program: both answers look alike until you choose one, and "Yes, quit" only turns red once it's chosen (Alt+F4 also quits).
 
 Logins are saved in the app's own profile, so you sign in to each service once.
 
