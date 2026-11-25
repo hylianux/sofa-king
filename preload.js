@@ -472,17 +472,21 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // While an mpv that can't read the controller itself is playing (in front of the app), the home
 // page passes every button on to it, focused or not. The D-pad repeats while held, like moving does.
 let toMpv = false;
+let mpvFresh = false;
 const mpvHeld = new Map();
-if (!IS_WEB) ipcRenderer.on('pad:to-mpv', (_e, on) => { toMpv = Boolean(on); mpvHeld.clear(); });
+if (!IS_WEB) ipcRenderer.on('pad:to-mpv', (_e, on) => { toMpv = Boolean(on); mpvFresh = toMpv; mpvHeld.clear(); });
 
 function poll(time) {
   const { active, raw, rx, ry } = readPads();
 
   if (toMpv) {
+    // Whatever's already held when mpv takes over (A, still down from choosing what to play)
+    // isn't for mpv: passed on, it paused a radio station the moment it started.
+    if (mpvFresh) { mpvFresh = false; for (const b of raw) mpvHeld.set(b, { since: time, last: time, old: true }); }
     for (const b of raw) {
       const h = mpvHeld.get(b);
       if (!h) { mpvHeld.set(b, { since: time, last: time }); ipcRenderer.send('pad-raw', b); }
-      else if (b >= 12 && b <= 15 && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) { h.last = time; ipcRenderer.send('pad-raw', b); }
+      else if (!h.old && b >= 12 && b <= 15 && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) { h.last = time; ipcRenderer.send('pad-raw', b); }
     }
     for (const b of [...mpvHeld.keys()]) if (!raw.has(b)) mpvHeld.delete(b);
     // Back in the app afterwards: what's held now (B that stopped it, say) isn't a new press.
