@@ -97,5 +97,14 @@ jobs:
           \`SHA256SUMS.txt\` lets you check the download: \`sha256sum -c SHA256SUMS.txt\`. *Source code* is the app as it was for this release.
 
           NOTES
-          gh release create "$tag" dist/*.AppImage dist/SHA256SUMS.txt \
-            --title "SOFA King ${tag#v}" --notes-file notes.md --generate-notes --verify-tag $pre
+          # GitHub sometimes fails partway (a 502 while uploading): remove the half-made draft and try again.
+          for try in 1 2 3; do
+            if gh release create "$tag" dist/*.AppImage dist/SHA256SUMS.txt \
+                --title "SOFA King ${tag#v}" --notes-file notes.md --generate-notes --verify-tag $pre; then
+              exit 0
+            fi
+            echo "::warning::GitHub didn't take the release (try $try of 3). Trying again shortly."
+            sleep 30
+            gh release delete "$tag" --yes 2>/dev/null || true
+          done
+          exit 1
