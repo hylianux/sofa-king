@@ -193,6 +193,8 @@ if (location.protocol === 'file:') {
     updateInstall: () => ipcRenderer.invoke('update:install'),
     updateRestart: () => ipcRenderer.invoke('update:restart'),
     onUpdate: listen('update'),
+    onUpdateOffer: listen('update:offer'),
+    updateOffered: (version) => ipcRenderer.invoke('update:offered', String(version || '')),
     jfList: () => ipcRenderer.invoke('jf:list'),
     jfDiscover: () => ipcRenderer.invoke('jf:discover'),
     jfProbe: (url) => ipcRenderer.invoke('jf:probe', String(url)),

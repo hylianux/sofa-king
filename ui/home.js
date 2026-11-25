@@ -42,7 +42,7 @@ const ERRORS = {
 const screens = {
   home: $('screen-home'), search: $('screen-search'), detail: $('screen-detail'),
   settings: $('screen-settings'), ask: $('screen-ask'),
-  episodes: $('screen-episodes'), choose: $('screen-choose'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
+  episodes: $('screen-episodes'), choose: $('screen-choose'), update: $('screen-update'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
 };
 let screen = 'home';
 const trail = []; // { screen, focus } to step back through
@@ -50,8 +50,10 @@ const trail = []; // { screen, focus } to step back through
 // Fewer animations: Settings → General → Screen → Animations off, or the system's "reduce motion".
 const lessMotion = () => document.body.classList.contains('less-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+const updateOffer = { pending: null }; // a new version waiting to be offered (see offerUpdate)
 function show(name) {
   for (const [key, node] of Object.entries(screens)) node.hidden = key !== name;
+  if (updateOffer.pending) setTimeout(offerUpdate, 400); // (after typing or a setup, say)
   // A new screen gets the theme's "screen" sound (the keyboard has its own sounds).
   if (name !== screen && name !== 'ask' && window.tvSound) window.tvSound('screen');
   screen = name;
@@ -65,6 +67,7 @@ function go(name) {
 function back() {
   if (screen === 'ask') { askKeys.handle('back'); return true; }
   if (screen === 'choose') { finishChoose(null); return true; }
+  if (screen === 'update') { finishUpdateOffer(false); return true; }
   if (screen === 'slots') { finishSlots(0); return true; }
   if (screen === 'search' && search.person) {
     // Leave a person's filmography, back to the plain results.
@@ -1453,6 +1456,7 @@ tv.onSettings((s) => {
 // to jump to General's "Use copied key" every time, wherever you'd been).
 tv.onHomeShown(() => {
   settings.overService = false; // nothing paused underneath any more
+  setTimeout(offerUpdate, 300); // a new version found while you were away
   if (screen === 'setup') setupBack();
   if (screen === 'home' && view === 'home') loadRows();
   if (screen === 'settings') {
@@ -3834,6 +3838,38 @@ function renderUpdate(st) {
   if (document.activeElement === document.body || (document.activeElement && document.activeElement.hidden)) (go.hidden ? $('up-restart') : go).focus();
 }
 tv.onUpdate(renderUpdate);
+
+// A new version, found when the app started: a small screen offering to go to Settings → Updates.
+// It waits while you're typing or in the middle of setting something up, and shows once Home is
+// back. "Show me" lands on the Update button.
+tv.onUpdateOffer((st) => { updateOffer.pending = st; offerUpdate(); });
+function offerUpdate() {
+  const st = updateOffer.pending;
+  if (!st || !st.latest || ['ask', 'setup', 'slots', 'choose', 'update'].includes(screen)) return;
+  updateOffer.pending = null;
+  $('uo-title').textContent = `SOFA King ${st.latest.version}`;
+  const news = (st.latest.news || []).slice(0, 5);
+  $('uo-news').hidden = !news.length;
+  $('uo-news').replaceChildren(...news.map((t) => el('li', { textContent: t })));
+  go('update');
+  $('uo-show').focus();
+  tv.updateOffered(st.latest.version);
+}
+async function finishUpdateOffer(showMe) {
+  const prev = trail.pop();
+  if (prev) {
+    show(prev.screen);
+    if (prev.focus && prev.focus.isConnected) prev.focus.focus();
+  }
+  if (!showMe) return;
+  await openSettings({ tab: 'general' });
+  renderUpdate(await tv.updateState());
+  const btn = $('up-go').hidden ? $('up-restart') : $('up-go');
+  btn.focus();
+  btn.scrollIntoView({ block: 'center', behavior: lessMotion() ? 'auto' : 'smooth' });
+}
+$('uo-show').addEventListener('click', () => finishUpdateOffer(true));
+$('uo-later').addEventListener('click', () => finishUpdateOffer(false));
 tv.updateState().then(renderUpdate);
 $('up-go').addEventListener('click', async () => {
   const st = await tv.updateState();

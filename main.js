@@ -4023,8 +4023,9 @@ function setupServiceSession() {
 
 // ------------------------------------------------------------ updates (the AppImage)
 
-// The AppImage checks SOFA King's GitHub page for a newer release: about a minute after starting,
-// then once a day. Nothing is downloaded until you choose Update now.
+// The AppImage checks SOFA King's GitHub page for a newer release: a few seconds after starting,
+// then once a day while it stays open. A new version is offered once (a small screen with "Show
+// me", which goes to Settings → General → Updates). Nothing is downloaded until you choose Update.
 const updater = createUpdater({ version: VERSION, appImage: process.env.APPIMAGE || null, apiBase: process.env.SOFA_UPDATE_API || undefined, log });
 const UPD = { status: 'idle', latest: null, error: null, got: 0, total: 0 };
 const updateState = () => ({
@@ -4046,11 +4047,11 @@ async function checkForUpdate({ quiet = false } = {}) {
     CONFIG.updates.lastCheck = Date.now();
     saveUserConfig({ updates: CONFIG.updates });
     log.info(`[update] checked: this is ${VERSION}, newest ${r.latest ? r.latest.version : 'none'}${CONFIG.updates.prerelease ? ' (test versions included)' : ''}`);
-    // A note on screen, once for each new version, when the check happened by itself.
-    if (r.newer && quiet && CONFIG.updates.toldAbout !== r.latest.version && updater.canUpdate().ok) {
-      CONFIG.updates.toldAbout = r.latest.version;
-      saveUserConfig({ updates: CONFIG.updates });
-      if (home && !home.webContents.isDestroyed()) home.webContents.send('toast', `SOFA King ${r.latest.version} is out. Settings → General → Updates gets it.`);
+    // Offered once for each new version, when the check happened by itself. (Home says when it's
+    // actually been shown, with update:offered.)
+    if (r.newer && quiet && CONFIG.updates.toldAbout !== r.latest.version && (updater.canUpdate().ok || process.env.SOFA_UPDATE_API)) {
+      UPD.status = 'available';
+      if (home && !home.webContents.isDestroyed()) home.webContents.send('update:offer', updateState());
     }
   } catch (err) {
     UPD.status = 'error'; UPD.error = err.code || 'failed';
@@ -4063,12 +4064,18 @@ async function checkForUpdate({ quiet = false } = {}) {
 function scheduleUpdateChecks() {
   if (!updater.canUpdate().ok && !process.env.SOFA_UPDATE_API) return;
   const due = () => CONFIG.updates.check && Date.now() - CONFIG.updates.lastCheck > 20 * 3600e3;
-  setTimeout(() => { if (due()) checkForUpdate({ quiet: true }); }, process.env.SOFA_UPDATE_API ? 2000 : 60e3);
+  // Every start, once Home has had a moment to load; then once a day.
+  setTimeout(() => { if (CONFIG.updates.check) checkForUpdate({ quiet: true }); }, process.env.SOFA_UPDATE_API ? 2000 : 5000);
   setInterval(() => { if (due()) checkForUpdate({ quiet: true }); }, 3600e3);
 }
 
 ipcMain.handle('update:state', (event) => (fromHome(event) ? updateState() : null));
 ipcMain.handle('update:check', (event) => (fromHome(event) ? checkForUpdate() : null));
+ipcMain.handle('update:offered', (event, version) => {
+  if (!fromHome(event) || !UPD.latest || String(version) !== UPD.latest.version) return;
+  CONFIG.updates.toldAbout = UPD.latest.version;
+  saveUserConfig({ updates: CONFIG.updates });
+});
 ipcMain.handle('update:set', (event, key, on) => {
   if (!fromHome(event) || !['check', 'prerelease'].includes(key)) return null;
   CONFIG.updates[key] = Boolean(on);

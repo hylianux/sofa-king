@@ -483,7 +483,11 @@ function createMusic({ getRegion = () => 'US', getServices = () => null, log = {
       if (direct.has(s.id)) links.push({ service: s.id, name: s.name, color: s.color, url: direct.get(s.id), direct: true });
       else if (!s.directOnly && !unofficial) links.push({ service: s.id, name: s.name, color: s.color, url: s.searchUrl.replace('{q}', encodeURIComponent(query.trim())), direct: false });
     }
-    return links.sort((x, y) => Number(y.direct) - Number(x.direct));
+    // YouTube Music first (it plays straight away, finding the album when pressed), then services
+    // that link straight to the album, then their searches. (Your own servers come before all of
+    // these, on the album's page.)
+    const rank = (l) => (l.service === 'youtube-music' ? 0 : l.direct ? 1 : 2);
+    return links.sort((x, y) => rank(x) - rank(y));
   }
 
   // ---------------------------------------------------------------- the Music tab's rows

@@ -64,12 +64,20 @@ app.whenReady().then(async () => {
     const focused = () => js("(document.activeElement.id || document.activeElement.className) + ' | ' + (document.activeElement.textContent || '').trim().slice(0, 60)");
     const status = () => js("document.getElementById('up-status').textContent + ' | button: ' + (document.getElementById('up-go').hidden ? '(hidden)' : document.getElementById('up-go').textContent) + ' | note: ' + document.getElementById('up-note').textContent");
 
-    // The check by itself, a moment after starting (sooner than a minute in this test).
-    await until(() => js("!document.getElementById('toast').hidden && /is out/.test(document.getElementById('toast').textContent)"), 15000);
-    say('note on screen:', await js("document.getElementById('toast').hidden ? '(none)' : document.getElementById('toast').textContent"));
-    await shot('1-note');
+    // The check by itself, a moment after starting: a small screen offering the new version.
+    await until(() => js("screen === 'update'"), 15000);
+    say('offered:', await js("document.getElementById('uo-title').textContent + ' | news: ' + [...document.querySelectorAll('#uo-news li')].length + ' | focus: ' + document.activeElement.textContent"));
+    await wait(800); await shot('1-offer');
     const cfg = () => JSON.parse(fs.readFileSync(path.join(UD, 'config.json'), 'utf8')).updates;
+    await wait(300);
     say('remembered:', JSON.stringify({ toldAbout: cfg().toldAbout, checked: cfg().lastCheck > 0 }));
+    // B: back where you were. Then Show me (offered again by hand, as if the app had just started).
+    await js("back(); 0"); await wait(500);
+    say('B:', await js("screen"));
+    await js("tv.updateState().then((st) => { updateOffer.pending = st; offerUpdate(); }); 0"); await wait(800);
+    await js("document.getElementById('uo-show').click(); 0"); await wait(2000);
+    say('Show me:', await js("screen + ' tab=' + settingsTab"), '|', await focused());
+    await shot('1b-show-me');
 
     // Settings → General → Updates.
     await js("openSettings({ tab: 'general' }); 0"); await wait(1200);

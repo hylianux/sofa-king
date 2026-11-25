@@ -1077,10 +1077,13 @@ body {
 
 /* ------------------------------------------------------------ resume or start over */
 
-#screen-choose, #screen-slots { display: grid; place-items: center; }
+#screen-choose, #screen-slots, #screen-update { display: grid; place-items: center; }
 .choose { text-align: center; }
 .choose h1 { margin: 0.4rem 0 2rem; font-size: 2.6rem; font-weight: 800; }
 .choose-buttons { display: flex; gap: 1rem; justify-content: center; }
+.update-offer { max-width: 44rem; margin: 0 auto; }
+.update-offer .up-news { text-align: left; margin: 0 auto 2rem; }
+.update-offer .fine { margin-top: 1.6rem; }
 
 /* ------------------------------------------------------------ settings: playback */
 
