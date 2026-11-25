@@ -612,8 +612,6 @@ const FOCUS_CSS = `
 const YOUTUBE = /^https?:\/\/((www|m|music)\.)?(youtube\.com|youtu\.be)(\/|$)/i;
 let hasVacuumTube = false; // refreshed whenever we look
 
-// Paths set by hand in Settings → Apps.
-for (const [id, p] of Object.entries(CONFIG.appPaths || {})) if (p) apps.setCustomPath(id, p);
 
 async function checkVacuumTube() {
   hasVacuumTube = Boolean(await apps.locate('vacuumtube'));
@@ -2359,7 +2357,7 @@ async function playInMpv(server, itemId, resume, how) {
 
   const sess = { server, list, current: null, startedAt: Date.now(), started: 0, asking: false, sawPause: false, askTimer: null };
   stepAside('mpv');
-  const ctl = player.play({
+  const ctl = playMpv({
     how,
     entries,
     startIndex: index,
@@ -2386,6 +2384,25 @@ async function playInMpv(server, itemId, resume, how) {
   });
   return { app: 'mpv' };
 }
+
+// Every mpv start goes through here. An mpv that can't read the controller itself (Flathub's, for
+// one) gets the buttons from the app instead: the home page keeps reading the controller while mpv
+// is in front and sends each press here ('pad-raw'), and it's passed to mpv by name.
+let padlessMpv = null;
+function playMpv(opts) {
+  const ctl = player.play({
+    ...opts,
+    onPadless: () => { padlessMpv = ctl; home?.webContents.send('pad:to-mpv', true); },
+    onExit: (error) => {
+      if (padlessMpv === ctl) { padlessMpv = null; home?.webContents.send('pad:to-mpv', false); }
+      opts.onExit(error);
+    },
+  });
+  return ctl;
+}
+ipcMain.on('pad-raw', (event, button) => {
+  if (padlessMpv && home && event.sender === home.webContents && Number.isInteger(button)) padlessMpv.press(button);
+});
 
 // "Are you sure?": the first press asks, a second press within a few seconds stops.
 // mpv on the same screen as the TV app. Automatic: the screen the app's window is on (screens
@@ -2839,7 +2856,7 @@ async function playQueue(queue, index, how, played) {
   const startedAt = {}; // when each song started (seconds), for Last.fm
   stepAside('mpv');
   const sess = {};
-  const ctl = player.play({
+  const ctl = playMpv({
     how,
     entries,
     startIndex: index,
@@ -3161,7 +3178,7 @@ musicHandler('radio:play', async (list, index) => {
     const song = get('icy-title') || [get('artist'), get('title')].filter(Boolean).join(' – ');
     ctl.card([st.name, song ? `♪ ${song}` : 'No song details from this station', st.about || get('icy-genre')]);
   };
-  const ctl = player.play({
+  const ctl = playMpv({
     how,
     entries: stations.map((x) => ({ url: x.url, title: x.name, start: 0 })),
     startIndex: start,
@@ -3917,7 +3934,7 @@ async function playLive(ids, startId) {
   const sess = { chans, index: start, failed: new Map(), why: new Map(), used: new Map(), direct: new Map(), openStreams: [], lastActivity: Date.now(), asking: false, stopAskedAt: 0, shownHelp: false, askTimer: null };
   liveSess = sess;
   stepAside('mpv');
-  const ctl = player.play({
+  const ctl = playMpv({
     how,
     screenArgs: mpvScreenArgs(),
     entries: chans.map((c) => {
@@ -4118,6 +4135,9 @@ ipcMain.handle('update:restart', (event) => {
 
 app.whenReady().then(async () => {
   CONFIG = loadConfig();
+  // Paths set by hand in Settings → Apps. (Only once the settings are read: done any earlier, it
+  // saw the defaults, so a path you'd set was forgotten every time the app restarted.)
+  for (const [id, p] of Object.entries(CONFIG.appPaths || {})) if (p) apps.setCustomPath(id, p);
   log.setDebug(CONFIG.debugLog);
   refreshAudio();
   watchmode = createWatchmode({

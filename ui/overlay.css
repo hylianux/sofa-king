@@ -146,7 +146,6 @@ h1 {
   box-shadow: 0 0 0 3px var(--bg-raised), 0 0 0 6px var(--focus);
 }
 .confirm-actions .item.quit:focus { background: var(--bad); color: #fff; box-shadow: 0 0 0 3px var(--bg-raised), 0 0 0 6px var(--bad); }
-.confirm-how { margin: 1.7rem 0 0; font-size: 1rem; color: var(--text-soft); text-align: center; }
 
 /* ------------------------------------------------------------ keyboard */
 

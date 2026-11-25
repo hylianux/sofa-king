@@ -970,7 +970,9 @@ async function showSeason(seasonId, highlightId) {
 tv.onJfPlayed(async ({ serverId, itemId, error }) => {
   if (!error) loadRows(); // Jump back in / Up next
   if (error) {
-    (screen === 'episodes' ? epStatus : screen === 'detail' ? status : toast)('mpv didn\'t start. Check it\'s installed, or pick another player in Settings → Jellyfin.');
+    (screen === 'episodes' ? epStatus : screen === 'detail' ? status : toast)(error === 'mpv-failed'
+      ? 'mpv quit straight away. The log (Settings → Developer) has what it said; or pick another player in Settings → Servers.'
+      : 'mpv didn\'t start. Check it\'s installed, or pick another player in Settings → Servers.');
     return;
   }
   status('');
@@ -2650,7 +2652,7 @@ async function playLive(shown, c) {
 }
 
 tv.onLivePlayed(({ error }) => {
-  if (error) toast('mpv didn\'t start. Check it\'s installed (Settings → Apps).', 6000);
+  if (error) toast(error === 'mpv-failed' ? 'mpv quit straight away. The log (Settings → Developer) has what it said.' : 'mpv didn\'t start. Check it\'s installed (Settings → Apps).', 6000);
   else toast('');
   if (view === 'live') getLiveState().then((s) => s && renderLive(s, { keep: true }));
 });

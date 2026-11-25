@@ -39,7 +39,7 @@ A show plays as a playlist, so the next episode follows on.
 | D-pad ▲ ▼ | Volume |
 | Start | Show the time |
 
-Change any of these in **Settings → Controller → In mpv**.
+Change any of these in **Settings → Controller → In mpv**. Some mpv builds (Flathub's, for one) can't read a controller themselves; the app notices and passes your buttons on to mpv for you, so they work the same.
 
 **Playback options** (Settings → Servers): play the next episode automatically, skip intros and credits automatically (your server needs to have them marked, e.g. with Jellyfin's Intro Skipper plugin), ask before stopping, and ask "Are you still watching?" after a while.
 

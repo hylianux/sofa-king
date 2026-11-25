@@ -37,6 +37,27 @@ const MPV_COMMANDS = {
   time: 'show-progress',
 };
 
+// Can this mpv read a controller itself? Only builds made with SDL2 have --input-gamepad (Flathub's
+// mpv doesn't, and mpv refuses to start at all when given an option it doesn't know). Asked once for
+// each way of starting mpv, in the background. When it can't, the app reads the controller and
+// passes each button on to mpv by name (see press() below), so your mpv buttons still work.
+const gamepadSupport = new Map();
+function canGamepad(how) {
+  const key = [how.cmd, ...how.args].join(' ');
+  if (!gamepadSupport.has(key)) {
+    gamepadSupport.set(key, new Promise((resolve) => {
+      let out = '';
+      let child;
+      try { child = spawn(how.cmd, [...how.args, '--list-options'], { stdio: ['ignore', 'pipe', 'ignore'], env: require('./apps').cleanEnv() }); } catch { resolve(false); return; }
+      const timer = setTimeout(() => { try { child.kill(); } catch { /* gone */ } resolve(false); }, 10000);
+      child.stdout.on('data', (c) => { out += c; });
+      child.on('error', () => { clearTimeout(timer); resolve(false); });
+      child.on('close', () => { clearTimeout(timer); resolve(/--input-gamepad\b/.test(out)); });
+    }));
+  }
+  return gamepadSupport.get(key);
+}
+
 function inputConf(bindings) {
   return Object.entries(bindings)
     .filter(([action, b]) => MPV_COMMANDS[action] && MPV_BUTTON[b])
@@ -104,7 +125,9 @@ function connect(socketPath, onMessage, watch = []) {
 //   onPlaying(index)                   it's open and starting (optional)
 //   loadingText(index)                 text under the loading animation (optional)
 //   onMetadata(tags)                   the stream's tags changed: a radio station's "now playing" (optional)
-function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, loadingText, logFile, log }) {
+//   onPadless()                        this mpv can't read the controller: the app should pass
+//                                      buttons on with press() while it plays (optional)
+function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, onPadless, loadingText, logFile, log }) {
   const dir = sharedDir(how.via);
   const id = `tv-overlay-${process.pid}-${Date.now()}`;
   const socketPath = path.join(dir, `${id}.sock`);
@@ -126,7 +149,6 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     ...screenArgs, // the same screen as the TV app
     '--ontop', // above the TV app, which waits full screen underneath (and is there when mpv closes)
     '--force-window=immediate',
-    '--input-gamepad=yes',
     `--input-conf=${confPath}`,
     `--input-ipc-server=${socketPath}`,
     // Jellyfin needs its token on every request; live channels from other places must not get it.
@@ -143,8 +165,10 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
 
   const state = { position: null, paused: false, duration: null, index: startIndex };
   let current = null; // index of the file playing now
+  let started = false; // mpv got as far as talking to us (so a later error exit isn't "failed to start")
 
   const ipc = connect(socketPath, (msg) => {
+    started = true;
     if (msg.event === 'property-change') {
       if (msg.name === 'time-pos' && typeof msg.data === 'number') state.position = msg.data;
       else if (msg.name === 'pause') state.paused = Boolean(msg.data);
@@ -213,10 +237,37 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     ipc.send({ name: 'osd-overlay', id: OVERLAY_ID, format: 'none', data: '' });
   }
 
-  if (log) log.debug('[mpv] starting:', how.cmd, args.filter((a) => !a.startsWith('--http-header-fields')).join(' '));
-  const child = spawn(how.cmd, args, { stdio: 'ignore', env: require('./apps').cleanEnv() });
   let finished = false;
-  const finish = (error) => {
+  let child = null;
+  canGamepad(how).then((pad) => {
+    if (finished) return;
+    if (pad) args.splice(how.args.length, 0, '--input-gamepad=yes');
+    else { if (log) log.debug('[mpv] this mpv can\'t read the controller itself: the app passes buttons on'); if (onPadless) onPadless(); }
+    start();
+  });
+  function start() {
+  if (log) log.debug('[mpv] starting:', how.cmd, args.filter((a) => !a.startsWith('--http-header-fields')).join(' '));
+  child = spawn(how.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: require('./apps').cleanEnv() });
+  // What mpv (or Flatpak) prints, the last few lines kept: when it quits without playing anything,
+  // that's the only clue why, so it goes in the log. (Long codes hidden, like the relay's.)
+  let said = '';
+  const hear = (chunk) => { said = (said + chunk.toString()).slice(-3000); };
+  child.stdout.on('data', hear);
+  child.stderr.on('data', hear);
+  child.on('error', () => finish('launch-failed'));
+  child.on('exit', (code, signal) => {
+    if (log) log.debug(`[mpv] closed (exit ${code}${signal ? `, ${signal}` : ''})`);
+    // Quit with an error before anything played: say so (the app shows a message), with mpv's words.
+    if (code && !started) {
+      const words = said.replace(/[0-9a-f]{24,}/gi, '«hidden»').trim().split('\n').slice(-12).join('\n  ');
+      if (log) log.warn(`[mpv] quit straight away (exit ${code}, started with ${how.via || how.cmd}). It said:\n  ${words || '(nothing)'}`);
+      return finish('mpv-failed');
+    }
+    finish(null);
+  });
+  }
+
+  function finish(error) {
     if (finished) return;
     finished = true;
     clearInterval(spin);
@@ -225,12 +276,16 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     ipc.close();
     try { fs.unlinkSync(socketPath); } catch { /* already gone */ }
     onExit(error || null);
-  };
-  child.on('error', () => finish('launch-failed'));
-  child.on('exit', (code, signal) => { if (log) log.debug(`[mpv] closed (exit ${code}${signal ? `, ${signal}` : ''})`); finish(null); });
+  }
 
   return {
     command: (cmd) => ipc.send(cmd),
+    // A controller button (standard number), passed on as if mpv had read it itself: its own
+    // bindings (Settings → Controller → In mpv) decide what it does. For an mpv that can't read
+    // the controller.
+    press: (button) => { if (MPV_BUTTON[button]) ipc.send(['keypress', MPV_BUTTON[button]]); },
+    // Closing it from the app (if it never started, there's nothing to close).
+    get running() { return Boolean(child) && !finished; },
     say: (text, ms = 4000) => ipc.send(['show-text', text, ms]),
     // A card that stays on screen (for radio, where there's no picture): a big first line, smaller
     // ones under it. Empty clears it.
@@ -241,4 +296,4 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
   };
 }
 
-module.exports = { play, MPV_COMMANDS, sharedDir };
+module.exports = { play, canGamepad, MPV_COMMANDS, MPV_BUTTON, sharedDir };

@@ -9,6 +9,8 @@ A free, open-source alternative to smart TV apps, Fire TV, Roku, Apple TV and An
 - **While watching,** one button brings up a menu that gets you home or into Settings.
 - **Make it yours:** layouts that look like Netflix, a PS5 or a PS3, colours, fonts, sounds and moving backgrounds.
 
+It's made for TVs and handhelds, especially the **Steam Deck**. Running it inside **gamescope** lets you use **FSR or NIS upscaling** for a sharper picture, if you'd like: add it to Steam as a non-Steam game (on the Deck, Game Mode already runs everything in gamescope), or start it with something like `gamescope -F fsr -- ./SOFA-King-*.AppImage`.
+
 *It used to be called TV Overlay. The first time SOFA King starts, your settings move over from `~/.config/tv-overlay` to `~/.config/sofa-king` by themselves.*
 
 ## Download and install

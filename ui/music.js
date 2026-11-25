@@ -394,7 +394,7 @@ async function playAlbum(y, start) {
   const r = await tv.musicPlay(y.serverId, y.itemId, start);
   if (r.error) toast(r.error === 'no-mpv' ? 'Playing music needs mpv. Install it from your package manager (Settings → Apps shows whether it\'s found).' : r.error === 'busy' ? 'Something is already playing.' : 'Couldn\'t play that album from your server.', 6000);
 }
-tv.onMusicPlayed((info) => { if (info && info.error) toast('mpv closed with a problem. Settings → Developer → the log has the details.', 6000); });
+tv.onMusicPlayed((info) => { if (info && info.error) toast(info.error === 'mpv-failed' ? 'mpv quit straight away. The log (Settings → Developer) has what it said.' : 'mpv closed with a problem. Settings → Developer → the log has the details.', 6000); });
 
 // ------------------------------------------------------------ made for you (ListenBrainz)
 

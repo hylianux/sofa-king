@@ -466,9 +466,32 @@ if (IS_WEB) {
 // ------------------------------------------------------------ polling
 
 let lastTime = 0;
+let shownAgain = false;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') shownAgain = true; });
+
+// While an mpv that can't read the controller itself is playing (in front of the app), the home
+// page passes every button on to it, focused or not. The D-pad repeats while held, like moving does.
+let toMpv = false;
+const mpvHeld = new Map();
+if (!IS_WEB) ipcRenderer.on('pad:to-mpv', (_e, on) => { toMpv = Boolean(on); mpvHeld.clear(); });
 
 function poll(time) {
   const { active, raw, rx, ry } = readPads();
+
+  if (toMpv) {
+    for (const b of raw) {
+      const h = mpvHeld.get(b);
+      if (!h) { mpvHeld.set(b, { since: time, last: time }); ipcRenderer.send('pad-raw', b); }
+      else if (b >= 12 && b <= 15 && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) { h.last = time; ipcRenderer.send('pad-raw', b); }
+    }
+    for (const b of [...mpvHeld.keys()]) if (!raw.has(b)) mpvHeld.delete(b);
+    // Back in the app afterwards: what's held now (B that stopped it, say) isn't a new press.
+    held.clear();
+    for (const action of active) held.set(action, { since: time, last: time });
+    lastTime = time;
+    requestAnimationFrame(poll);
+    return;
+  }
 
   if (capture && document.hasFocus()) {
     if (!capture.before) capture.before = new Set(raw); // ignore whatever was already held (the A that started this)
@@ -485,10 +508,13 @@ function poll(time) {
     requestAnimationFrame(poll);
     return;
   }
-  // A long gap means this page was hidden (hidden pages don't run this loop), like the menu
-  // between visits. Whatever's held now was pressed before it appeared, such as the Start that just
-  // opened it, so it mustn't count as a new press.
-  const paused = lastTime && time - lastTime > 250;
+  // Just shown again (hidden pages don't run this loop), like the menu between visits: whatever's
+  // held now was pressed before it appeared, such as the Start that just opened it, so it mustn't
+  // count as a new press. Only when the page really was hidden (or after a very long gap): a page
+  // that's merely slow to draw (a big guide redrawing on a small computer) used to look "hidden" on
+  // every frame, so every press was thrown away and the controller seemed to stop working.
+  const paused = shownAgain || (lastTime && time - lastTime > 1500);
+  shownAgain = false;
   const dt = Math.min(50, time - (lastTime || time));
   lastTime = time;
 
