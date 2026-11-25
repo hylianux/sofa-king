@@ -3649,6 +3649,75 @@ $('s-motion').addEventListener('click', async () => {
   const s = await tv.setMotion(!$('s-motion').classList.contains('on'));
   if (s) applyMotion(s.motion !== false);
 });
+// Updates (Settings → General → Updates). Only the AppImage replaces itself; run from the source
+// code, it just says when there's a newer version.
+const UPDATE_ERRORS = {
+  unreachable: 'GitHub isn\'t answering. Check your internet connection and try again.',
+  busy: 'GitHub is busy. Try again in a while.',
+  'bad-checksum': 'The download didn\'t match its checksum, so it wasn\'t used. Try again.',
+  'no-checksum': 'That release has no checksum to check the download against, so it wasn\'t used.',
+  'no-file': 'That release has no AppImage for this computer.',
+  'no-space': 'There isn\'t enough free space next to the AppImage for the new version.',
+  'read-only': 'The AppImage is in a folder SOFA King can\'t write to, so it can\'t replace itself.',
+  failed: 'Something went wrong. Try again (Settings → Developer has the log).',
+};
+const mb = (n) => `${Math.round(n / 1048576)} MB`;
+function renderUpdate(st) {
+  if (!st) return;
+  const appImage = st.can.ok;
+  const v = st.latest && st.latest.version;
+  const status = $('up-status');
+  const say = (cls, text) => { status.className = `status ${cls}`; status.textContent = text; };
+  const go = $('up-go');
+  go.hidden = false;
+  $('up-restart').hidden = true;
+  if (st.status === 'checking') { say('none', `This is version ${st.version} · looking…`); go.textContent = 'Looking…'; }
+  else if (st.status === 'downloading') {
+    const pct = st.total ? Math.floor((st.got / st.total) * 100) : 0;
+    say('none', `Downloading ${v}… ${pct}%${st.total ? ` of ${mb(st.total)}` : ''}`);
+    go.textContent = `Downloading… ${pct}%`;
+  } else if (st.status === 'ready') {
+    say('good', `Version ${v} is ready. It starts next time, or now.`);
+    go.hidden = true;
+    $('up-restart').hidden = false;
+  } else if (st.status === 'available') {
+    say('good', `Version ${v} is out · you have ${st.version}`);
+    go.textContent = appImage ? `Update to ${v}` : 'Check again';
+  } else if (st.status === 'none') {
+    say('good', v ? `You have the newest version (${st.version})` : `This is version ${st.version} · no ${st.prerelease ? '' : 'stable '}release on GitHub yet`);
+    go.textContent = 'Check now';
+  } else { say('none', `This is version ${st.version}`); go.textContent = 'Check now'; }
+  const news = st.status === 'available' || st.status === 'ready' ? (st.latest.news || []) : [];
+  $('up-news').hidden = !news.length;
+  $('up-news').replaceChildren(...news.map((t) => el('li', { textContent: t })));
+  const note = $('up-note');
+  note.classList.remove('good');
+  note.textContent = st.error ? (UPDATE_ERRORS[st.error] || UPDATE_ERRORS.failed)
+    : !appImage && st.can.why === 'not-appimage' ? (st.status === 'available'
+      ? 'You\'re running SOFA King from its source code: git pull gets the new version (or download the AppImage from github.com/hylianux/sofa-king).'
+      : 'You\'re running SOFA King from its source code, so it never replaces itself; git pull gets new versions. Check now still says when there\'s one.')
+      : !appImage ? UPDATE_ERRORS['read-only'] : '';
+  $('up-auto').classList.toggle('on', st.check);
+  $('up-pre').classList.toggle('on', st.prerelease);
+  // Focus never gets lost when a button comes or goes.
+  if (document.activeElement === document.body || (document.activeElement && document.activeElement.hidden)) (go.hidden ? $('up-restart') : go).focus();
+}
+tv.onUpdate(renderUpdate);
+tv.updateState().then(renderUpdate);
+$('up-go').addEventListener('click', async () => {
+  const st = await tv.updateState();
+  if (!st || ['checking', 'downloading'].includes(st.status)) return;
+  if (st.status === 'available' && st.can.ok) renderUpdate(await tv.updateInstall());
+  else renderUpdate(await tv.updateCheck());
+});
+$('up-restart').addEventListener('click', async () => {
+  const r = await tv.updateRestart();
+  if (r && r.error) { $('up-note').textContent = 'The new version didn\'t start. Close SOFA King and start it again.'; }
+});
+for (const [id, key] of [['up-auto', 'check'], ['up-pre', 'prerelease']]) {
+  $(id).addEventListener('click', async () => renderUpdate(await tv.updateSet(key, !$(id).classList.contains('on'))));
+}
+
 // Which screen mpv opens on (Settings → Apps).
 async function renderMpvScreen(picked) {
   const n = Math.max(1, await tv.screens());

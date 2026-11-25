@@ -175,6 +175,13 @@ if (location.protocol === 'file:') {
     apps: (again) => ipcRenderer.invoke('apps:status', Boolean(again)),
     onExternalClosed: listen('external:closed'),
     onToast: listen('toast'),
+    // Updates (the AppImage).
+    updateState: () => ipcRenderer.invoke('update:state'),
+    updateCheck: () => ipcRenderer.invoke('update:check'),
+    updateSet: (key, on) => ipcRenderer.invoke('update:set', String(key), Boolean(on)),
+    updateInstall: () => ipcRenderer.invoke('update:install'),
+    updateRestart: () => ipcRenderer.invoke('update:restart'),
+    onUpdate: listen('update'),
     jfList: () => ipcRenderer.invoke('jf:list'),
     jfDiscover: () => ipcRenderer.invoke('jf:discover'),
     jfProbe: (url) => ipcRenderer.invoke('jf:probe', String(url)),

@@ -1833,3 +1833,6 @@ body.less-motion .radio-st:focus { transform: none; }
 .al-track .t small { color: var(--muted); font-weight: 500; }
 .al-track:focus .t small { color: var(--on-focus-soft); }
 .al-track.on-servers .n::before { content: ''; display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.45rem; border-radius: 50%; background: var(--good); vertical-align: 0.1rem; }
+
+/* Settings → Updates: what's new in the next version. */
+.up-news { margin: 0.4rem 0 0.8rem; padding-left: 1.3rem; color: var(--muted); line-height: 1.5; }

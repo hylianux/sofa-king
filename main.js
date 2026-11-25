@@ -30,6 +30,8 @@ const { createMusic, MUSIC_SERVICES } = require('./music');
 const { createSubsonic } = require('./subsonic');
 const { createRadio, okUrl: radioUrlOk } = require('./radio');
 const ytTools = require('./youtube');
+const { createUpdater } = require('./updater');
+const VERSION = require('./package.json').version;
 
 // The app used to be called TV Overlay. The first time SOFA King starts, your settings, themes,
 // sign-ins and logs move over from the old folder (~/.config/tv-overlay -> ~/.config/sofa-king).
@@ -71,7 +73,7 @@ const log = createLogger({
     }
   },
 });
-log.info(`---- SOFA King starting (Electron ${process.versions.electron}, ${process.platform} ${require('os').release()})`);
+log.info(`---- SOFA King ${VERSION} starting (Electron ${process.versions.electron}, ${process.platform} ${require('os').release()})`);
 const QRCode = require('qrcode');
 
 // Layouts and colour schemes: built in, plus any of your own in ~/.config/sofa-king/themes.
@@ -189,6 +191,7 @@ function loadConfig() {
     music: cleanMusicConfig(merged.music),
     radio: cleanRadioConfig(merged.radio),
     youtube: cleanYouTubeConfig(merged.youtube),
+    updates: cleanUpdatesConfig(merged.updates),
     bindings: cleanBindings(merged.bindings),
     debugLog: merged.debugLog === true,
     mpvScreen: Number.isInteger(merged.mpvScreen) ? merged.mpvScreen : null, // null: the app's own screen
@@ -252,6 +255,17 @@ function cleanStation(x) {
   return st.id && st.name && radioUrlOk(st.url) ? st : null;
 }
 // YouTube: where it opens, and the TV page's extras (all off until switched on).
+// Updates (Settings → General → Updates). Test versions are on by default when this copy is one.
+function cleanUpdatesConfig(u) {
+  const x = u && typeof u === 'object' ? u : {};
+  return {
+    check: x.check !== false,
+    prerelease: typeof x.prerelease === 'boolean' ? x.prerelease : VERSION.includes('-'),
+    lastCheck: Number(x.lastCheck) || 0,
+    toldAbout: typeof x.toldAbout === 'string' ? x.toldAbout.slice(0, 40) : '',
+  };
+}
+
 function cleanYouTubeConfig(y) {
   const x = y && typeof y === 'object' ? y : {};
   const cats = Array.isArray(x.sbCategories) ? x.sbCategories.filter((c) => ytTools.SB_CATEGORIES.some((k) => k.id === c)) : ['sponsor'];
@@ -282,6 +296,7 @@ let CONFIG = {
   playback: null, mpvBindings: null, music: { servers: [], services: null, useJellyfin: true, usePlex: true, listenbrainz: '', lastfmKey: '', shelves: { unofficial: true, tribute: true, appears: true, related: true } },
   radio: { stations: [], favorites: [], somafm: true, country: null },
   youtube: { open: 'auto', adblock: false, sponsorblock: false, dislikes: false, dearrow: false, sbCategories: ['sponsor'] },
+  updates: cleanUpdatesConfig(null),
 };
 
 const tmdb = createTmdb({ getKey: () => CONFIG.tmdbKey, getRegion: () => CONFIG.region, services: SERVICES, stores: STORES });
@@ -3766,6 +3781,94 @@ function setupServiceSession() {
   s.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed.has(permission)));
 }
 
+// ------------------------------------------------------------ updates (the AppImage)
+
+// The AppImage checks SOFA King's GitHub page for a newer release: about a minute after starting,
+// then once a day. Nothing is downloaded until you choose Update now.
+const updater = createUpdater({ version: VERSION, appImage: process.env.APPIMAGE || null, apiBase: process.env.SOFA_UPDATE_API || undefined, log });
+const UPD = { status: 'idle', latest: null, error: null, got: 0, total: 0 };
+const updateState = () => ({
+  version: VERSION, can: updater.canUpdate(), check: CONFIG.updates.check, prerelease: CONFIG.updates.prerelease,
+  lastCheck: CONFIG.updates.lastCheck, status: UPD.status, error: UPD.error, got: UPD.got, total: UPD.total,
+  latest: UPD.latest && { version: UPD.latest.version, name: UPD.latest.name, date: UPD.latest.date, prerelease: UPD.latest.prerelease, news: UPD.latest.news, size: UPD.latest.file ? UPD.latest.file.size : 0 },
+});
+const pushUpdate = () => { if (home && !home.webContents.isDestroyed()) home.webContents.send('update', updateState()); };
+const busyUpdating = () => ['checking', 'downloading'].includes(UPD.status);
+
+async function checkForUpdate({ quiet = false } = {}) {
+  if (busyUpdating() || UPD.status === 'ready') return updateState();
+  UPD.status = 'checking'; UPD.error = null;
+  pushUpdate();
+  try {
+    const r = await updater.check(CONFIG.updates.prerelease);
+    UPD.latest = r.latest;
+    UPD.status = r.newer ? 'available' : 'none';
+    CONFIG.updates.lastCheck = Date.now();
+    saveUserConfig({ updates: CONFIG.updates });
+    log.info(`[update] checked: this is ${VERSION}, newest ${r.latest ? r.latest.version : 'none'}${CONFIG.updates.prerelease ? ' (test versions included)' : ''}`);
+    // A note on screen, once for each new version, when the check happened by itself.
+    if (r.newer && quiet && CONFIG.updates.toldAbout !== r.latest.version && updater.canUpdate().ok) {
+      CONFIG.updates.toldAbout = r.latest.version;
+      saveUserConfig({ updates: CONFIG.updates });
+      if (home && !home.webContents.isDestroyed()) home.webContents.send('toast', `SOFA King ${r.latest.version} is out. Settings → General → Updates gets it.`);
+    }
+  } catch (err) {
+    UPD.status = 'error'; UPD.error = err.code || 'failed';
+    log.warn(`[update] couldn't check: ${err.code || err.message}`);
+  }
+  pushUpdate();
+  return updateState();
+}
+
+function scheduleUpdateChecks() {
+  if (!updater.canUpdate().ok && !process.env.SOFA_UPDATE_API) return;
+  const due = () => CONFIG.updates.check && Date.now() - CONFIG.updates.lastCheck > 20 * 3600e3;
+  setTimeout(() => { if (due()) checkForUpdate({ quiet: true }); }, process.env.SOFA_UPDATE_API ? 2000 : 60e3);
+  setInterval(() => { if (due()) checkForUpdate({ quiet: true }); }, 3600e3);
+}
+
+ipcMain.handle('update:state', (event) => (fromHome(event) ? updateState() : null));
+ipcMain.handle('update:check', (event) => (fromHome(event) ? checkForUpdate() : null));
+ipcMain.handle('update:set', (event, key, on) => {
+  if (!fromHome(event) || !['check', 'prerelease'].includes(key)) return null;
+  CONFIG.updates[key] = Boolean(on);
+  saveUserConfig({ updates: CONFIG.updates });
+  if (key === 'prerelease' && !busyUpdating() && UPD.status !== 'ready') { UPD.status = 'idle'; UPD.latest = null; }
+  return updateState();
+});
+ipcMain.handle('update:install', async (event) => {
+  if (!fromHome(event) || UPD.status !== 'available' || !UPD.latest) return null;
+  UPD.status = 'downloading'; UPD.got = 0; UPD.total = UPD.latest.file ? UPD.latest.file.size : 0; UPD.error = null;
+  pushUpdate();
+  let last = 0;
+  try {
+    await updater.install(UPD.latest, (got, total) => {
+      UPD.got = got; UPD.total = total;
+      if (Date.now() - last > 400) { last = Date.now(); pushUpdate(); }
+    });
+    UPD.status = 'ready';
+  } catch (err) {
+    UPD.status = 'available'; UPD.error = err.code || 'failed';
+    log.warn(`[update] couldn't install ${UPD.latest.version}: ${err.code || err.message}`);
+  }
+  pushUpdate();
+  return updateState();
+});
+// Start the new AppImage, then close this one.
+ipcMain.handle('update:restart', (event) => {
+  if (!fromHome(event) || UPD.status !== 'ready' || !process.env.APPIMAGE) return null;
+  log.info('[update] restarting into the new version');
+  try {
+    const child = require('child_process').spawn(process.env.APPIMAGE, process.argv.slice(1).filter((a) => a.startsWith('--windowed')), { detached: true, stdio: 'ignore', env: apps.cleanEnv() });
+    child.unref();
+  } catch (err) {
+    log.warn(`[update] couldn't start the new version: ${err.message}`);
+    return { error: 'failed' };
+  }
+  setTimeout(() => app.quit(), 300);
+  return { ok: true };
+});
+
 app.whenReady().then(async () => {
   CONFIG = loadConfig();
   log.setDebug(CONFIG.debugLog);
@@ -3827,6 +3930,7 @@ app.whenReady().then(async () => {
   loadLiveCache();
   setTimeout(() => { if (liveSources().length) refreshLive(); }, 5000);
   setInterval(() => { if (liveSources().length) refreshLive(); }, LIVE_REFRESH_MS);
+  scheduleUpdateChecks();
 });
 
 app.on('window-all-closed', () => app.quit());

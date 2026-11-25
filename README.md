@@ -14,6 +14,15 @@ Download the newest **SOFA-King-….AppImage** from [Releases](https://github.co
 
 To have it in your apps menu, [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) or AppImageLauncher adds it for you.
 
+### Updates
+
+The AppImage keeps itself up to date. About a minute after it starts (and then once a day), it asks SOFA King's GitHub page whether there's a newer release, and a note on screen says when there is. **Settings → General → Updates** shows the new version and what's new in it; **Update now** downloads it in the background, checks it against the release's checksum file (a download that doesn't match is thrown away), and puts it in place of your AppImage under the same name, so anything that starts it keeps working. **Restart now** switches to it straight away; otherwise it's used next time.
+
+- *Look for updates by itself* switches the daily check off (*Check now* still works).
+- *Include test versions* also offers pre-releases (like 0.2.0-beta.1). It's on to begin with if the version you have is a test version itself.
+- The only thing sent is the request for the release list, from "SOFA-King/<version>". Nothing about you or what you watch.
+- Running from the source code, it never replaces itself: it only says when there's a newer version (`git pull` gets it).
+
 ## Running it from the source code
 
 You need Node.js 20 or newer.
@@ -415,7 +424,6 @@ A tag with a dash (`v0.2.0-beta.1`) makes a **pre-release**, which people lookin
 - "Pick for me": something to watch, chosen for you.
 - Noticing when a service has signed you out, and signing in to services from your phone.
 - Suggestions while typing on the on-screen keyboard.
-- An update check in the AppImage, reading the newest stable release.
 
 ## Licence
 
