@@ -39,8 +39,12 @@ jobs:
             exit 1
           fi
 
+      # npm doesn't always run Electron's own download step, so it's run here to be sure.
       - name: Install
-        run: npm ci
+        run: |
+          npm ci
+          node node_modules/electron/install.js
+          cat node_modules/electron/dist/version
 
       - name: Build the AppImage
         run: npm run dist
