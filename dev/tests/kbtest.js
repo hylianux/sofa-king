@@ -13,7 +13,7 @@ app.whenReady().then(async () => { try {
   const wc = views[0].webContents;
   const js = (c) => wc.executeJavaScript(c);
   const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { wc.sendInputEvent({ type: 'keyDown', keyCode: k }); wc.sendInputEvent({ type: 'keyUp', keyCode: k }); await wait(120); } };
-  const shot = async (f) => fs.writeFileSync(path.join(__dirname, f + '.png'), (await wc.capturePage()).toPNG());
+  const shot = async (f) => fs.writeFileSync(path.join(__dirname, 'out', f + '.png'), (await wc.capturePage()).toPNG());
   const sel = () => js("document.querySelector('#ask-keys .k.sel').dataset.k");
   await js("window.__r = 'pending'; askFor({ label: 'Name your theme', eyebrow: 'Test' }).then((v) => { window.__r = v; }); 0"); await wait(600);
   LOG('start on:', await sel(), '| badges:', await js("[...document.querySelectorAll('#ask-keys .kb-badge')].map(b => b.parentElement.dataset.k + '=' + b.textContent).join(' ')"));

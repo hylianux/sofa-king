@@ -137,6 +137,9 @@ async function runMusicSearch() {
     list.append(el('h3', { class: 'results-head', textContent: title }));
     for (const it of items) { const c = musicCard(it); c.style.setProperty('--i', String(i++)); list.append(c); }
   }
+  // Their names for the suggestions above the keys.
+  searchSugg.titles = [...artists.map((a) => a.name), ...albums.map((a) => a.title), ...songs.map((x) => x.title)];
+  searchSuggestSoon(0);
 }
 
 // ------------------------------------------------------------ an artist's page
@@ -496,6 +499,29 @@ function renderMusicSettings(st) {
   $('mu-lf-status').textContent = st.lastfm ? `Last.fm · key ${st.lastfm}` : 'ListenBrainz (no key needed)';
   $('mu-lf-setup').textContent = st.lastfm ? 'Change key' : 'Set up Last.fm';
   $('mu-lf-remove').hidden = !st.lastfm;
+  // Scrobbling.
+  const signedIn = Boolean(st.lastfmUser);
+  $('mu-sc-status').className = `status ${signedIn && st.scrobble ? 'good' : 'none'}`;
+  $('mu-sc-status').textContent = !st.lastfm ? 'Needs your Last.fm key first'
+    : signedIn ? (st.scrobble ? `Scrobbling as ${st.lastfmUser}` : `Signed in as ${st.lastfmUser} · scrobbling off`)
+      : st.lastfmSigningIn ? 'Waiting for you to press Allow on Last.fm…' : 'Not signed in';
+  $('mu-sc-signin').hidden = signedIn;
+  $('mu-sc-signin').textContent = st.lastfm ? 'Sign in to scrobble' : 'Set up Last.fm';
+  $('mu-sc-signout').hidden = !signedIn;
+  $('mu-sc-on').hidden = !signedIn;
+  $('mu-sc-on').classList.toggle('on', st.scrobble !== false);
+  // One switch per server, once scrobbling is on.
+  const perServer = signedIn && st.scrobble !== false && st.scrobbleServers.length > 0;
+  $('mu-sc-servers-label').hidden = !perServer;
+  $('mu-sc-servers').hidden = !perServer;
+  $('mu-sc-servers').replaceChildren(...(perServer ? st.scrobbleServers : []).map((s) => {
+    const b = el('button', {
+      class: `pill toggle${s.on ? ' on' : ''}`, nav: true,
+      onclick: async () => { const r = await tv.lastfmServer(s.id, !s.on); if (r.ok) renderMusicSettings(r.ok); focusLater(`#mu-sc-servers [data-server="${CSS.escape(s.id)}"]`); },
+    }, el('span', { textContent: s.name.includes(s.kind) ? s.name : `${s.name} (${s.kind})` }), el('span', { class: 'switch', 'aria-hidden': 'true' }));
+    b.dataset.server = s.id;
+    return b;
+  }));
   for (const k of ['unofficial', 'tribute', 'appears', 'related']) $(`mu-shelf-${k}`).classList.toggle('on', st.shelves[k] !== false);
   renderMusicFolders();
 }
@@ -532,7 +558,7 @@ async function addMusicServer() {
   note('Checking…');
   const r = await tv.musicAddServer(url, user, password);
   if (r.error) {
-    note({ unauthorized: 'The server didn\'t accept that user name and password.', unreachable: 'Nothing answered at that address.', 'bad-address': 'That doesn\'t look like an address.', 'not-subsonic': 'Something answered, but it isn\'t a Navidrome or Subsonic server.' }[r.error] || 'Couldn\'t add the server.');
+    note({ unauthorized: 'The server didn\'t accept that user name and password.', unreachable: 'Nothing answered at that address.', 'bad-address': 'That doesn\'t look like an address.', 'not-subsonic': 'Something answered, but it isn\'t a Subsonic server (check the address and port).', 'no-token': 'That server can\'t check a scrambled sign-in, only a plain password, which the app doesn\'t keep. If the server can make an app password or API key, use that as the password.' }[r.error] || 'Couldn\'t add the server.');
   } else {
     note('Added. Its albums now show up in the Music tab.', true);
     renderMusicSettings(r.ok);
@@ -573,6 +599,48 @@ $('mu-lb-clear').addEventListener('click', async () => {
   focusLater('#mu-lb-set');
 });
 $('mu-lf-setup').addEventListener('click', () => openSetup('lastfm'));
+
+// ---- Scrobbling to Last.fm
+const LASTFM_ERRORS = {
+  'bad-secret': 'Last.fm didn\'t accept that secret. It\'s the "Shared secret" just below your API key, not the key itself.',
+  'not-a-key': 'That doesn\'t look like a shared secret (32 letters and numbers).',
+  'bad-key': 'Last.fm didn\'t accept your key. Set it up again.',
+  unreachable: 'Couldn\'t reach Last.fm. Check your internet connection.',
+  busy: 'Last.fm is busy. Try again in a minute.',
+};
+// Sign in: the shared secret first if it wasn't picked up with the key, then Last.fm's "allow
+// access" page opens here; once you press Allow, you're brought back by yourself.
+async function lastfmSignIn() {
+  const note = (t) => { if ($('mu-sc-note')) $('mu-sc-note').textContent = t || ''; };
+  let st = await tv.musicSettings();
+  if (!st.ok || !st.ok.lastfm) { openSetup('lastfm'); return; }
+  // No secret: the setup explains where it is (shown only once, when the key was made) and how to
+  // get one (a new key). Once it's in, Sign in to scrobble works.
+  if (!st.ok.lastfmSecret) { openSetup('lastfm', 'secret'); return; }
+  note('');
+  const r = await tv.lastfmSignIn();
+  if (r.error) { note(LASTFM_ERRORS[r.error] || ERRORS.failed); focusLater('#mu-sc-signin'); return; }
+  renderMusicSettings(r.ok);
+  note('Last.fm\'s page is open: sign in there if it asks, then press Allow. You\'ll come back here by yourself.');
+}
+$('mu-sc-signin').addEventListener('click', lastfmSignIn);
+$('mu-sc-signout').addEventListener('click', async () => {
+  const r = await tv.lastfmSignOut();
+  if (r.ok) renderMusicSettings(r.ok);
+  $('mu-sc-note').textContent = '';
+  focusLater('#mu-sc-signin');
+});
+$('mu-sc-on').addEventListener('click', async () => {
+  const r = await tv.lastfmScrobble(!$('mu-sc-on').classList.contains('on'));
+  if (r.ok) renderMusicSettings(r.ok);
+});
+tv.onLastfmSignedIn(async (user) => {
+  $('mu-sc-note').textContent = '';
+  const st = await tv.musicSettings();
+  if (st.ok) renderMusicSettings(st.ok);
+  toast(`Signed in to Last.fm as ${user}. Scrobbling is on.`);
+  if (screen === 'settings') focusLater('#mu-sc-on');
+});
 $('mu-lf-remove').addEventListener('click', async () => {
   await tv.setAnyKey('lastfm', '');
   const r = await tv.musicSettings();
@@ -658,7 +726,7 @@ async function showRadioTab(tab, { focusList = false } = {}) {
   const listBox = $('radio-list');
   const note = $('radio-note');
   if (tab === 'search') {
-    const q = await askFor({ label: 'Search for a station', eyebrow: 'Radio', value: radio.search, placeholder: 'jazz, BBC, KEXP…' });
+    const q = await askFor({ label: 'Search for a station', eyebrow: 'Radio', value: radio.search, placeholder: 'jazz, BBC, KEXP…', suggest: 'radio' });
     if (seq !== radio.seq) return;
     if (!q) { $('radio-tabs').querySelector('[data-tab="search"]')?.focus(); return; }
     radio.search = q;
@@ -728,7 +796,7 @@ function renderRadioSettings(st) {
 $('ra-add').addEventListener('click', async () => {
   const url = await askFor({ label: 'The station\'s address', eyebrow: 'Radio · Add a station', hint: 'A stream, or an M3U or PLS playlist. Paste it from your phone.', placeholder: 'https://…' });
   if (!url) return focusLater('#ra-add');
-  const name = await askFor({ label: 'What to call it', eyebrow: 'Radio · Add a station' });
+  const name = await askFor({ label: 'What to call it', eyebrow: 'Radio · Add a station', suggest: 'words' });
   const r = await tv.radioAdd(name || '', url);
   $('ra-note').textContent = r.ok ? 'Added. It\'s on the Music tab\'s Radio shelf.' : r.error === 'bad-address' ? 'That needs to be a web address starting with http:// or https://.' : 'Couldn\'t add the station.';
   $('ra-note').classList.toggle('good', Boolean(r.ok));

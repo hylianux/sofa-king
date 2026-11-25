@@ -47,6 +47,11 @@ if (location.protocol === 'file:') {
     musicPlaySongs: (list, start) => ipcRenderer.invoke('music:play-songs', (Array.isArray(list) ? list : []).slice(0, 300).map((t) => plain(t, ['serverId', 'id'])), Number(start) || 0),
     musicListenBrainz: (name) => ipcRenderer.invoke('music:listenbrainz', String(name || '')),
     musicShelf: (id, on) => ipcRenderer.invoke('music:shelf', String(id), Boolean(on)),
+    lastfmSignIn: () => ipcRenderer.invoke('music:lastfm-signin'),
+    lastfmScrobble: (on) => ipcRenderer.invoke('music:lastfm-scrobble', Boolean(on)),
+    lastfmSignOut: () => ipcRenderer.invoke('music:lastfm-signout'),
+    lastfmServer: (id, on) => ipcRenderer.invoke('music:lastfm-server', String(id), Boolean(on)),
+    onLastfmSignedIn: listen('lastfm:signed-in'),
     musicAlbum: (spec) => ipcRenderer.invoke('music:album', plain(spec, ['mbid', 'deezerId', 'title', 'artist', 'serverId', 'itemId'])),
     musicYouTube: (kind, title, artist) => ipcRenderer.invoke('music:youtube', { kind: String(kind), title: String(title || ''), artist: String(artist || '') }),
     youtubeSettings: () => ipcRenderer.invoke('youtube:settings'),
@@ -90,6 +95,7 @@ if (location.protocol === 'file:') {
     clipboardKey: (kind = 'tmdb') => ipcRenderer.invoke('ui:clipboard-key', String(kind)),
     phone: (mode, keyFor = 'tmdb') => ipcRenderer.invoke('ui:phone', String(mode), String(keyFor)),
     phoneMode: (mode, keyFor = 'tmdb') => ipcRenderer.send('ui:phone-mode', String(mode), String(keyFor)),
+    phoneAsk: (label, secret) => ipcRenderer.invoke('ui:phone-ask', String(label || ''), Boolean(secret)),
     setAnyKey: (kind, key) => ipcRenderer.invoke('ui:set-any-key', String(kind), String(key)),
     wmStatus: () => ipcRenderer.invoke('wm:status'),
     openLink: (url, serviceId) => ipcRenderer.send('ui:open-link', String(url), serviceId ? String(serviceId) : null),
@@ -116,6 +122,11 @@ if (location.protocol === 'file:') {
     onMotion: listen('motion'),
     setFullScreen: (on) => ipcRenderer.invoke('ui:set-fullscreen', Boolean(on)),
     setKbConfirm: (on) => ipcRenderer.invoke('ui:set-kb-confirm', Boolean(on)),
+    setSuggest: (patch) => ipcRenderer.invoke('ui:set-suggest', {
+      ...(typeof patch.on === 'boolean' ? { on: patch.on } : {}),
+      ...(typeof patch.remember === 'boolean' ? { remember: patch.remember } : {}),
+      ...(patch.forget ? { forget: true } : {}),
+    }),
     onTypingDone: listen('typing:done'),
     onHold: (cb) => { holdListeners.push(cb); },
     setAppPath: (id, p) => ipcRenderer.invoke('apps:set-path', String(id), String(p || '')),
@@ -223,6 +234,11 @@ if (location.protocol === 'file:') {
     kbType: (text) => ipcRenderer.send('kb:type', String(text)),
     kbKey: (name) => ipcRenderer.send('kb:key', String(name)),
     kbClose: (submit) => ipcRenderer.send('kb:close', Boolean(submit)),
+
+    // suggestions while typing (both pages)
+    suggest: (text, where, titles) => ipcRenderer.invoke('suggest:get', String(text || ''), String(where || ''),
+      Array.isArray(titles) ? titles.filter((t) => typeof t === 'string').slice(0, 40) : []),
+    suggestRemember: (text, where) => ipcRenderer.send('suggest:remember', String(text || ''), String(where || '')),
   });
 } else {
   // Websites: tell the app when a text field is focused, so A can bring up the keyboard.
@@ -237,9 +253,17 @@ if (location.protocol === 'file:') {
     return text.trim().replace(/\s+/g, ' ');
   };
 
+  // A search box (so the keyboard can suggest titles and your earlier searches): the field says so
+  // itself, or its name or label mentions searching.
+  const isSearch = (el) => el.type === 'search' || el.getAttribute('role') === 'searchbox' ||
+    /search|query|find/i.test(`${el.name || ''} ${el.id || ''} ${el.placeholder || ''} ${el.getAttribute('aria-label') || ''}`) ||
+    Boolean(el.closest && el.closest('form[role="search"], [role="search"]'));
+  const isEmail = (el) => el.type === 'email' || /email/i.test(`${el.name || ''} ${el.getAttribute('autocomplete') || ''}`);
+  const kindOf = (el) => (el.type === 'password' ? 'password' : isEmail(el) ? 'email' : isSearch(el) ? 'search' : 'text');
+
   window.addEventListener('focusin', (e) => {
     if (isTextField(e.target)) {
-      ipcRenderer.send('field', { focused: true, kind: e.target.type === 'password' ? 'password' : 'text', label: labelOf(e.target) });
+      ipcRenderer.send('field', { focused: true, kind: kindOf(e.target), label: labelOf(e.target) });
     }
   }, true);
   window.addEventListener('focusout', (e) => {

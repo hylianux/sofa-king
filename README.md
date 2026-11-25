@@ -130,7 +130,9 @@ For typing into websites, and for naming things in the app:
 - **Capitals:** hold L2 or R2 for capitals and the second character on each key (! @ # …). Press both together for caps lock; while it's on, holding either gives small letters.
 - **Moving:** left and right loop around each row.
 - **Badges:** the keys with a button of their own show it (Delete, Space, Shift, Done).
-- **Finishing:** Start is Done and B cancels. Each asks "are you sure?" first, with No chosen, unless that's switched off in Settings → Controller → On-screen keyboard.
+- **Your phone:** the typing screen shows a code to scan; what you type on your phone goes into the box (dots for passwords), and its Enter button finishes.
+- **Finishing:** Start is Done and B cancels. Each asks "are you sure?" first, with No chosen (the chosen answer is lit up and slightly bigger, the other faded), unless that's switched off in Settings → Controller → On-screen keyboard.
+- **Suggestions:** a row above the keys offers things to pick instead of spelling them out; press Up to reach it, and A puts the one you pick in what you've typed (the highlight goes back to the key you came from). It finishes the word you're typing, from the commonest words in films and TV. On the Search screen it also offers the titles it found (or artists, albums and songs on music search) and your earlier searches; station searches remember earlier ones too. Over a website, search boxes get titles and your earlier searches there, email fields get endings like @gmail.com, and password fields get nothing. The keys never move as suggestions come and go. Earlier searches are only kept once you open something a search found (or send a website search), and stay on this computer. **Settings → Controller → On-screen keyboard** turns suggestions off, stops remembering searches (which also forgets them), or forgets them with one press.
 
 ## Music
 
@@ -144,13 +146,14 @@ The **Music** tab (between Live and Genres) works the way movies do: find an art
 
 **Settings → Music:**
 
-- **Navidrome** (or another Subsonic server): *Add a server* asks for its address (`my-server:4533`), your user name and password. The password isn't saved: only a scrambled form of it that the server can check, and it never goes in a web address (everything is sent in the body of the request; songs reach mpv through a little relay on this computer). Navidrome is told what's playing, for its play counts.
+- **Subsonic servers:** Navidrome, or any other server that speaks the Subsonic language (Gonic, Airsonic-Advanced, Ampache, LMS, Supysonic, Nextcloud Music and others). *Add a server* asks for its address (`my-server:4533`; Navidrome's port 4533 is assumed if you leave the port out), your user name and password. The password isn't saved: only a scrambled form of it that the server can check. It's sent in the body of each request, which Navidrome and other newer servers read; a server that only reads it from the web address (older Subsonic servers) is noticed when you add it and gets it there instead, which is the standard Subsonic way. Either way it only ever goes to that server and never in the log, and songs reach mpv through a little relay on this computer, so mpv never sees it. A server that can only check a plain password (some do, behind LDAP for example) can't be added unless it can make an app password or API key to use instead. The server is told what's playing, for its play counts.
 - **Folders:** which of the server's folders (libraries) the Music tab looks in. With none picked, all of them. To keep a folder out (an unsorted pile, say), make it a separate library on the server and leave it unpicked here.
 - **Music services:** which services get a button on album pages. Your Jellyfin and Plex servers' music can be switched off here too.
 - **Recommendations:** your **ListenBrainz** name, for the *Made for you* playlists (ListenBrainz makes them from what you listen to; Navidrome can send it your plays). Your name is public on ListenBrainz anyway, and nothing else is sent. **Related artists** come from ListenBrainz with no setup; *Set up Last.fm* walks you through getting a free Last.fm key (on your phone, or here on the TV) for Last.fm's instead, which often know more artists. The key is kept out of the log.
+- **Scrobbling:** the key alone can't scrobble: it lets the app look things up, but doesn't say whose profile to add plays to, so Last.fm has you allow it once. With a Last.fm key, *Sign in to scrobble* opens Last.fm's page here, where you press Allow (once; you come back by yourself). From then on, songs you play from your servers go on your Last.fm profile: "now playing" while each one plays, and the song once you've heard half of it or four minutes (songs under 30 seconds never count, as Last.fm asks). It's on as soon as you've signed in; *Scrobble what I play* turns it off. It needs your key's **shared secret** too, the second code Last.fm shows on the page right after you make a key. **Last.fm only shows the secret that once**: your API accounts page shows the key later, but not the secret. On that page, *Use the key on this page* reads both; from your phone, paste the key and the secret one after the other (either order). If you didn't keep the secret, *Sign in to scrobble* explains and offers to make a new key (the old one just stops being used), or to type the secret if you saved it somewhere. Once it's on, each of your music servers (Subsonic, Jellyfin and Plex) gets its own switch: switch off any server that already sends its plays to Last.fm itself (Navidrome can, and Jellyfin with its Last.fm plugin), or each song from it counts twice. New servers start switched on. The secret and the sign-in are kept out of the log, and only ever go to Last.fm.
 - **Artist pages:** switch off any of the slower shelves (unofficial releases, tributes, appears on, related artists).
 
-Only Last.fm needs a key, and it's optional. The catalogue only ever sees what you searched for.
+Only Last.fm needs a key, and it's optional (scrobbling needs you to sign in too). The catalogue only ever sees what you searched for.
 
 ### Radio
 
@@ -336,7 +339,7 @@ When the app hands off to VacuumTube or Jellyfin Desktop, it hides itself and co
 
 Other apps start with a clean environment: started with `npm start`, the app's own PATH begins with its `node_modules/.bin`, and a launcher like Arch's `/usr/bin/startvacuumtube` (which runs `electron`) would otherwise pick up this app's Electron instead of the system one and crash. npm's and Electron's own variables are left out too, and the desktop's `XDG_CURRENT_DESKTOP` is put back.
 
-VacuumTube gets `--fullscreen` (so it fills the screen even if its own setting says otherwise) and, for a video, an album or a search, the address as its last argument; it opens with your own VacuumTube profile and sign-in. If it doesn't start (it quits straight away with an error), the app comes back, says so, and opens YouTube for TV here instead; what VacuumTube printed is in the log. If VacuumTube is installed somewhere the app can't find, Settings → Apps → *Tell it where VacuumTube is* takes its path.
+VacuumTube gets `--fullscreen` (so it fills the screen even if its own setting says otherwise) and, for a video, an album or a search, the address as its last argument; it opens with your own VacuumTube profile and sign-in. (VacuumTube hands that address to YouTube's TV page, which understands video links and `youtube.com/search?q=…`, but quietly ignores the website's `results?search_query=…` and stays on its home screen; searches use the first kind.) If it doesn't start (it quits straight away with an error), the app comes back, says so, and opens YouTube for TV here instead; what VacuumTube printed is in the log. If VacuumTube is installed somewhere the app can't find, Settings → Apps → *Tell it where VacuumTube is* takes its path.
 
 ## Getting around websites
 
@@ -389,6 +392,7 @@ The search URLs in `services.json` for Netflix, YouTube and Apple TV are well kn
 - `jellyfin.js` – finding Jellyfin servers, signing in, checking libraries, and telling Jellyfin Desktop what to show
 - `plex.js` – Plex: signing in with a code, finding servers, rows, matching titles, the library, episodes, and playback reports (answering in the same shapes as `jellyfin.js`)
 - `apps.js` – finding and launching VacuumTube, mpv and Jellyfin Desktop
+- `lastfm.js` – scrobbling to Last.fm: signing in (token, allow page, session) and the signed calls
 - `youtube.js` – YouTube for TV (its address, and the extras that run inside it), and finding albums and songs on YouTube Music
 - `player.js` – playing Jellyfin files in mpv, with controller controls and progress reporting
 - `preload.js` – controller reading, text-field detection on websites, and the bridge for our own pages
@@ -397,7 +401,8 @@ The search URLs in `services.json` for Netflix, YouTube and Apple TV are well kn
 - `livetv.js` – live TV: reading M3U playlists and XMLTV guides, and matching up the same channel from different sources
 - `livetv-store.js`, `livetv-worker.js` – live TV's channel store, on a background thread: reads lists, matches channels, keeps the cache, and says whether anything changed
 - `music.js` – the music catalogue: search, artists' shelves (official, unofficial, tributes), albums and where they're streaming (MusicBrainz, the Cover Art Archive, Deezer, Apple)
-- `subsonic.js` – Navidrome and other Subsonic servers (the sign-in only ever in the request body)
+- `subsonic.js` – Navidrome and other Subsonic servers (the sign-in in the request body, or the address for servers that only read it there)
+- `suggest.js`, `data/words-en.txt` – suggestions while typing: earlier searches, titles, finished words and email endings
 - `radio.js` – internet radio: Radio Browser (popular, search, countries) and SomaFM
 - `ui/music.js` – the Music tab, an artist's page, an album's page, the Radio page, and Settings → Music
 - `trakt.js` – the optional Trakt connection: sign-in with a code, watchlist, picks, history, scrobbling
@@ -423,10 +428,9 @@ A tag with a dash (`v0.2.0-beta.1`) makes a **pre-release**, which people lookin
 
 - "Pick for me": something to watch, chosen for you.
 - Noticing when a service has signed you out, and signing in to services from your phone.
-- Suggestions while typing on the on-screen keyboard.
 
 ## Licence
 
 SOFA King is free software: you can share it and change it under the terms of the **GNU General Public License, version 3 or (at your option) any later version**. See [`LICENSE`](LICENSE). It comes with no warranty.
 
-Parts made by others keep their own licences: Tone.js and qrcode (MIT), the recorded instruments from the Fluid R3 GM sound font (CC BY 3.0, credited in `themes/instruments/CREDITS.md`), and the fonts in `themes/fonts/` (SIL Open Font License or Apache 2.0, each with its licence beside it). Removing ads from YouTube's TV page follows how [VacuumTube](https://github.com/shy1132/VacuumTube) (MIT) does it.
+Parts made by others keep their own licences: Tone.js and qrcode (MIT), the recorded instruments from the Fluid R3 GM sound font (CC BY 3.0, credited in `themes/instruments/CREDITS.md`), and the fonts in `themes/fonts/` (SIL Open Font License or Apache 2.0, each with its licence beside it), and the word list in `data/words-en.txt` (the commonest words in film and TV subtitles, from Hermit Dave's [FrequencyWords](https://github.com/hermitdave/FrequencyWords), CC BY-SA 4.0; swear words taken out). Removing ads from YouTube's TV page follows how [VacuumTube](https://github.com/shy1132/VacuumTube) (MIT) does it.

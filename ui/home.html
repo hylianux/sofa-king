@@ -213,6 +213,7 @@
   <section class="screen" id="screen-search" hidden>
     <div class="typing">
       <div class="query" id="query"><span id="query-text"></span><span class="caret"></span></div>
+      <div class="osk-sugg" id="osk-sugg"></div>
       <div class="osk" id="osk"></div>
       <div class="hints compact">
         <span><kbd data-bind="delete"></kbd>Delete</span>
@@ -576,8 +577,8 @@
         <button class="pill" data-nav id="sw-more" aria-label="More">+</button>
       </div>
 
-      <h2 class="section-title" data-group="Navidrome">Music</h2>
-      <p class="lede">Add your Navidrome server (or another Subsonic server). Albums you have there get a button on the album's page and their own shelf on the artist's page, and play in mpv.</p>
+      <h2 class="section-title" data-group="Subsonic servers">Music</h2>
+      <p class="lede">Add your Navidrome server, or any other server that speaks the Subsonic language (Gonic, Airsonic-Advanced, Ampache, LMS, Supysonic, Nextcloud Music and others). Albums you have there get a button on the album's page and their own shelf on the artist's page, and play in mpv.</p>
       <div class="servers" id="mu-servers"></div>
       <div class="actions">
         <button class="pill" data-nav id="mu-add">Add a server</button>
@@ -625,6 +626,20 @@
         <button class="pill" data-nav id="mu-lf-setup">Set up Last.fm</button>
         <button class="pill quiet" data-nav id="mu-lf-remove" hidden>Remove key</button>
       </div>
+
+      <p class="sub-label" data-group="Scrobbling">Adding what you play to your Last.fm profile.</p>
+      <p class="lede">Songs you play from your servers can go on your Last.fm profile ("scrobbled"): each one once you've heard half of it, or four minutes. Your Last.fm key lets the app look things up, but it doesn't say whose profile to add plays to, so Last.fm asks you to allow it once: <strong>Sign in to scrobble</strong> opens Last.fm's page, you press Allow (signing in first if it asks), and you're brought back here. It also needs the key's <strong>shared secret</strong> (shown just below the key on Last.fm's page); if the app didn't pick it up with the key, it asks for it, and you can type it on your phone. If one of your servers already sends its plays to Last.fm (Navidrome can, and Jellyfin with its Last.fm plugin), switch that server off below, or each song counts twice.</p>
+      <div class="status" id="mu-sc-status"></div>
+      <div class="actions">
+        <button class="pill" data-nav id="mu-sc-signin">Sign in to scrobble</button>
+        <button class="pill quiet" data-nav id="mu-sc-signout" hidden>Sign out of Last.fm</button>
+      </div>
+      <button class="pill toggle on" data-nav id="mu-sc-on" hidden>
+        <span>Scrobble what I play</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine" id="mu-sc-servers-label" hidden>From which servers. Switch off any that already send your plays to Last.fm themselves.</p>
+      <div class="mu-services" id="mu-sc-servers"></div>
+      <p class="note" id="mu-sc-note"></p>
 
       <p class="sub-label" data-group="Artist pages">What an artist's page shows, besides their own releases</p>
       <button class="pill toggle" data-nav id="mu-shelf-unofficial">
@@ -717,6 +732,14 @@
       <button class="pill toggle on" data-nav id="s-kb-confirm">
         <span>Ask "are you sure?" before sending (Start) or cancelling (B)</span><span class="switch" aria-hidden="true"></span>
       </button>
+      <p class="fine">Suggestions show in a row above the keys: press Up to reach them. They finish the word you're typing, and on search screens also offer titles and your earlier searches. Nothing is suggested for passwords.</p>
+      <button class="pill toggle on" data-nav id="s-suggest">
+        <span>Suggestions while typing</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill toggle on" data-nav id="s-suggest-remember">
+        <span>Remember what I search for (off also forgets it)</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="pill quiet" data-nav id="s-suggest-forget">Forget my earlier searches</button>
       <p class="lede bind-lede" data-group="Buttons">Pick an action, then press the button you want for it. The D-pad always moves around.</p>
       <div class="bindings" id="bindings"></div>
       <div class="actions">
@@ -832,6 +855,12 @@
 
   <!-- Typing something in: an address, a username, a password -->
   <section class="screen" id="screen-ask" hidden>
+    <aside class="ask-phone" id="ask-phone" hidden>
+      <div class="qr" id="ask-qr"></div>
+      <p class="ask-phone-title">Type on your phone</p>
+      <p class="ask-phone-help" id="ask-phone-help">Scan with your camera. Phone and TV need the same Wi-Fi.</p>
+      <p class="ask-phone-addr" id="ask-phone-addr"></p>
+    </aside>
     <div class="ask">
       <p class="eyebrow" id="ask-eyebrow"></p>
       <h1 id="ask-label"></h1>
@@ -844,7 +873,7 @@
         <span><kbd data-bind="rclick"></kbd><kbd data-bind="lclick"></kbd>Shift · both: caps lock</span>
         <span><kbd data-bind="menu"></kbd>Done</span>
         <span><kbd data-bind="back"></kbd>Cancel</span>
-        <span>You can also type on your phone or a keyboard</span>
+        <span>A keyboard works too</span>
       </div>
     </div>
   </section>

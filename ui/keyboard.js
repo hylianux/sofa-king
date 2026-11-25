@@ -11,6 +11,9 @@
 //   - The keys that have a button of their own show it (Delete, Space, Shift, Done).
 //   - Start: Done. Asks "are you sure?" first (and B asks before cancelling), unless that's
 //     switched off in Settings → Controller.
+//   - Suggestions (when the page asks for them): a row above the keys, reached with Up. Picking
+//     one puts it in what you've typed and goes back to the key you came from. The row keeps its
+//     height while it's empty, so the keys never move as suggestions come and go.
 (function () {
   const LETTERS = [
     [...'1234567890'],
@@ -31,8 +34,11 @@
   };
   const isLetter = (k) => k.length === 1 && /[a-z]/.test(k);
 
-  function create({ root, extras = {}, onType, onErase, onSubmit, onCancel, onNext, confirm = () => true, buttonName = () => '', describe = () => '' }) {
-    const kb = { layout: 'letters', held: new Set(), caps: false, chord: false, sel: null, dialog: null, keys: [] };
+  function create({ root, extras = {}, onType, onErase, onSubmit, onCancel, onNext, onPick, confirm = () => true, buttonName = () => '', describe = () => '' }) {
+    const kb = {
+      layout: 'letters', held: new Set(), caps: false, chord: false, sel: null, dialog: null, keys: [],
+      suggOn: false, sugg: [], suggRow: null, chips: [], cameFrom: null,
+    };
 
     const bottomRow = () => [kb.layout === 'letters' ? '?123' : 'ABC', 'space', ...(extras.com ? ['.com'] : []), '⌫', ...(extras.next ? ['Next'] : []), 'Done'];
     const shiftHeld = () => kb.held.size > 0;
@@ -79,6 +85,14 @@
       help.className = 'kb-help';
       root.prepend(help);
       kb.help = help;
+      kb.suggRow = null;
+      kb.chips = [];
+      if (kb.suggOn) {
+        kb.suggRow = document.createElement('div');
+        kb.suggRow.className = 'kb-row kb-sugg';
+        help.after(kb.suggRow);
+        fillSuggestions();
+      }
       relabel();
       const keep = keepKey && kb.keys.find((n) => n.dataset.k === keepKey);
       select(keep || kb.keys.find((n) => n.dataset.k === 'q') || kb.keys.find((n) => n.dataset.k === '!') || kb.keys[0]);
@@ -103,7 +117,35 @@
       root.classList.toggle('caps', kb.caps);
     }
 
+    // The suggestion row's chips, from kb.sugg. If the highlight was on a chip, it stays at the
+    // same place in the row (or goes back to the keys when the row is empty).
+    function fillSuggestions() {
+      if (!kb.suggRow) return;
+      const at = kb.chips.indexOf(kb.sel);
+      kb.chips = kb.sugg.map((item) => {
+        const chip = document.createElement('div');
+        chip.className = `k sugg ${item.kind || ''}`;
+        const face = document.createElement('span');
+        face.className = 'face';
+        face.textContent = item.label;
+        chip.append(face);
+        chip.tvItem = item;
+        chip.addEventListener('click', () => pick(chip));
+        return chip;
+      });
+      kb.suggRow.replaceChildren(...kb.chips);
+      if (at >= 0) {
+        if (kb.chips.length) select(kb.chips[Math.min(at, kb.chips.length - 1)]);
+        else select(kb.cameFrom && kb.cameFrom.isConnected ? kb.cameFrom : kb.keys[0]);
+      }
+    }
+    function pick(chip) {
+      if (onPick) onPick(chip.tvItem);
+      select(kb.cameFrom && kb.cameFrom.isConnected ? kb.cameFrom : kb.keys.find((n) => n.dataset.k === 'q') || kb.keys[0]);
+    }
+
     function select(node) {
+      if (node && kb.chips.includes(node) && !kb.chips.includes(kb.sel)) kb.cameFrom = kb.sel;
       if (kb.sel) kb.sel.classList.remove('sel');
       kb.sel = node;
       if (node) node.classList.add('sel');
@@ -122,7 +164,7 @@
       }
       let best = null;
       let bestScore = Infinity;
-      for (const n of kb.keys) {
+      for (const n of [...kb.chips, ...kb.keys]) {
         if (n === kb.sel) continue;
         const b = n.getBoundingClientRect();
         if (dir === 'up' ? b.bottom > a.top + 1 : b.top < a.bottom - 1) continue;
@@ -160,16 +202,21 @@
         : 'Cancel? What you typed will be lost.';
       const btns = document.createElement('div');
       btns.className = 'kb-dialog-btns';
+      // Both answers look alike until chosen: the chosen one is lit up and the other fades back
+      // (a coloured "Yes" used to look chosen when it wasn't).
       const no = document.createElement('div');
-      no.className = 'k mid sel';
-      no.textContent = kind === 'submit' ? 'No, keep typing' : 'No, keep typing';
+      no.className = 'k mid choice sel';
+      no.textContent = 'No, keep typing';
       const yes = document.createElement('div');
-      yes.className = 'k mid done';
+      yes.className = 'k mid choice';
       yes.textContent = kind === 'submit' ? 'Yes, send it' : 'Yes, cancel';
       no.addEventListener('click', () => closeDialog());
       yes.addEventListener('click', () => finish(kind, true));
       btns.append(no, yes);
-      box.append(q, btns);
+      const how = document.createElement('p');
+      how.className = 'kb-dialog-how';
+      how.textContent = `Left / right to choose · ${buttonName('ok') || 'A'} to answer · ${buttonName('back') || 'B'}: keep typing`;
+      box.append(q, btns, how);
       root.append(box);
       kb.dialog = { kind, box, no, yes, onYes: false };
       if (window.tvSound) window.tvSound('open');
@@ -205,6 +252,7 @@
     function handle(action) {
       if (kb.dialog) return dialogAction(action);
       if (['up', 'down', 'left', 'right'].includes(action)) { move(action); if (window.tvSound) window.tvSound('move'); return true; }
+      if (action === 'ok' && kb.sel && kb.chips.includes(kb.sel)) { pick(kb.sel); if (window.tvSound) window.tvSound('type'); return true; }
       if (action === 'ok' && kb.sel) { press(kb.sel.dataset.k); if (window.tvSound) window.tvSound('type'); return true; }
       if (action === 'delete') { onErase(); return true; }
       if (action === 'playpause') { onType(' '); return true; }
@@ -224,12 +272,20 @@
       }
       relabel();
     }
-    function reset() {
+    // suggest: whether this keyboard shows a suggestion row this time.
+    function reset({ suggest = false } = {}) {
       kb.layout = 'letters'; kb.caps = false; kb.held.clear(); kb.chord = false;
+      kb.suggOn = Boolean(suggest); kb.sugg = []; kb.chips = []; kb.cameFrom = null;
       closeDialog();
       render();
     }
-    return { render, handle, hold, reset, get dialogOpen() { return Boolean(kb.dialog); } };
+    // New suggestions ([{ label, value, kind }]); an empty list empties the row.
+    function suggestions(list) {
+      if (!kb.suggOn) return;
+      kb.sugg = Array.isArray(list) ? list.slice(0, 6) : [];
+      fillSuggestions();
+    }
+    return { render, handle, hold, reset, suggestions, get dialogOpen() { return Boolean(kb.dialog); } };
   }
 
   window.TVKeyboard = { create };

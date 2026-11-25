@@ -31,6 +31,8 @@ const { createSubsonic } = require('./subsonic');
 const { createRadio, okUrl: radioUrlOk } = require('./radio');
 const ytTools = require('./youtube');
 const { createUpdater } = require('./updater');
+const { createSuggester, rememberIn } = require('./suggest');
+const { createLastfm, counts: lastfmCounts } = require('./lastfm');
 const VERSION = require('./package.json').version;
 
 // The app used to be called TV Overlay. The first time SOFA King starts, your settings, themes,
@@ -67,7 +69,8 @@ const log = createLogger({
       return [CONFIG.tmdbKey, CONFIG.watchmodeKey, CONFIG.trakt && CONFIG.trakt.accessToken, CONFIG.trakt && CONFIG.trakt.refreshToken,
         CONFIG.trakt && CONFIG.trakt.clientSecret, ...(CONFIG.jellyfinServers || []).map((s) => s.token),
         CONFIG.plex && CONFIG.plex.accountToken, ...((CONFIG.plex && CONFIG.plex.servers) || []).map((s) => s.token),
-        ...((CONFIG.music && CONFIG.music.servers) || []).map((s) => s.token), CONFIG.music && CONFIG.music.lastfmKey].filter(Boolean);
+        ...((CONFIG.music && CONFIG.music.servers) || []).map((s) => s.token), CONFIG.music && CONFIG.music.lastfmKey,
+        CONFIG.music && CONFIG.music.lastfm && CONFIG.music.lastfm.secret, CONFIG.music && CONFIG.music.lastfm && CONFIG.music.lastfm.session].filter(Boolean);
     } catch {
       return []; // too early: settings not read yet
     }
@@ -192,6 +195,7 @@ function loadConfig() {
     radio: cleanRadioConfig(merged.radio),
     youtube: cleanYouTubeConfig(merged.youtube),
     updates: cleanUpdatesConfig(merged.updates),
+    suggest: cleanSuggestConfig(merged.suggest),
     bindings: cleanBindings(merged.bindings),
     debugLog: merged.debugLog === true,
     mpvScreen: Number.isInteger(merged.mpvScreen) ? merged.mpvScreen : null, // null: the app's own screen
@@ -231,7 +235,7 @@ function cleanMusicConfig(m) {
   const ids = new Set(MUSIC_SERVICES.map((s) => s.id));
   return {
     servers: (Array.isArray(x.servers) ? x.servers : []).filter((s) => s && /^sub-[0-9a-f]+$/.test(s.id) && s.url && s.user && s.token && s.salt)
-      .map((s) => ({ id: s.id, type: 'subsonic', name: String(s.name || 'Navidrome'), kind: String(s.kind || ''), url: s.url, user: s.user, token: s.token, salt: s.salt,
+      .map((s) => ({ id: s.id, type: 'subsonic', name: String(s.name || 'Navidrome'), kind: String(s.kind || ''), url: s.url, user: s.user, token: s.token, salt: s.salt, get: s.get === true,
         folders: Array.isArray(s.folders) ? s.folders.map(String).slice(0, 50) : [] })),
     services: Array.isArray(x.services) ? x.services.filter((id) => ids.has(id)) : null,
     useJellyfin: x.useJellyfin !== false,
@@ -239,8 +243,23 @@ function cleanMusicConfig(m) {
     // Recommendations: your ListenBrainz name (public), and a Last.fm key for related artists.
     listenbrainz: typeof x.listenbrainz === 'string' && /^[\w.@+-]{1,64}$/.test(x.listenbrainz) ? x.listenbrainz : '',
     lastfmKey: typeof x.lastfmKey === 'string' && /^[0-9a-f]{32}$/.test(x.lastfmKey) ? x.lastfmKey : '',
+    // Scrobbling: the key's shared secret, and the session from signing in (with your user name).
+    // Scrobbling itself is on by default once you've signed in.
+    lastfm: cleanLastfm(x.lastfm),
     // Which of the slower shelves an artist's page shows.
     shelves: Object.fromEntries(['unofficial', 'tribute', 'appears', 'related'].map((k) => [k, !(x.shelves && x.shelves[k] === false)])),
+  };
+}
+
+function cleanLastfm(l) {
+  const x = l && typeof l === 'object' ? l : {};
+  const hex = (v) => (typeof v === 'string' && /^[0-9a-f]{32}$/i.test(v) ? v.toLowerCase() : '');
+  const session = typeof x.session === 'string' && /^[\w-]{16,64}$/.test(x.session) ? x.session : '';
+  return {
+    secret: hex(x.secret), session, user: session && typeof x.user === 'string' ? x.user.slice(0, 64) : '', scrobble: x.scrobble !== false,
+    // Servers whose plays aren't scrobbled (say one already sends them to Last.fm itself). New
+    // servers are scrobbled until switched off here.
+    skip: Array.isArray(x.skip) ? x.skip.filter((id) => typeof id === 'string' && id.length < 100).slice(0, 50) : [],
   };
 }
 
@@ -264,6 +283,18 @@ function cleanUpdatesConfig(u) {
     lastCheck: Number(x.lastCheck) || 0,
     toldAbout: typeof x.toldAbout === 'string' ? x.toldAbout.slice(0, 40) : '',
   };
+}
+
+// Suggestions while typing: on or off, whether searches are remembered, and the remembered ones
+// (newest first) for each place you search.
+const PAST_PLACES = ['search', 'music', 'radio', 'web'];
+function cleanSuggestConfig(g) {
+  const x = g && typeof g === 'object' ? g : {};
+  const past = {};
+  for (const k of PAST_PLACES) {
+    past[k] = Array.isArray(x.past && x.past[k]) ? x.past[k].filter((p) => typeof p === 'string' && p.trim()).map((p) => p.slice(0, 100)).slice(0, 50) : [];
+  }
+  return { on: x.on !== false, remember: x.remember !== false, past };
 }
 
 function cleanYouTubeConfig(y) {
@@ -293,10 +324,11 @@ function saveUserConfig(patch) {
 
 let CONFIG = {
   tmdbKey: '', region: 'US', phonePort: 8765, showHints: true, jellyfinServers: [], jellyfinDeviceId: '', bindings: null,
-  playback: null, mpvBindings: null, music: { servers: [], services: null, useJellyfin: true, usePlex: true, listenbrainz: '', lastfmKey: '', shelves: { unofficial: true, tribute: true, appears: true, related: true } },
+  playback: null, mpvBindings: null, music: { servers: [], services: null, useJellyfin: true, usePlex: true, listenbrainz: '', lastfmKey: '', lastfm: cleanLastfm(null), shelves: { unofficial: true, tribute: true, appears: true, related: true } },
   radio: { stations: [], favorites: [], somafm: true, country: null },
   youtube: { open: 'auto', adblock: false, sponsorblock: false, dislikes: false, dearrow: false, sbCategories: ['sponsor'] },
   updates: cleanUpdatesConfig(null),
+  suggest: cleanSuggestConfig(null),
 };
 
 const tmdb = createTmdb({ getKey: () => CONFIG.tmdbKey, getRegion: () => CONFIG.region, services: SERVICES, stores: STORES });
@@ -390,6 +422,7 @@ const settingsState = () => ({
   layout: layoutState(),
   look: lookState(),
   kbConfirm: CONFIG.kbConfirm,
+  suggest: { on: CONFIG.suggest.on, remember: CONFIG.suggest.remember, past: PAST_PLACES.reduce((n, k) => n + CONFIG.suggest.past[k].length, 0) },
   fullScreen: Boolean(win && !win.isDestroyed() && (win.isKiosk() || win.isFullScreen())),
   mpvScreen: CONFIG.mpvScreen,
   motion: CONFIG.motion,
@@ -423,6 +456,7 @@ let overlayOpen = false;   // menu showing
 let quitAsking = false;    // the menu's "Quit SOFA King?" question is up
 let keyboardOpen = false;  // on-screen keyboard showing over a website
 let serviceField = null;   // { label, kind } of the text field focused on the website, if any
+let keyboardField = null;  // the field the keyboard is typing into (kept while the website blinks its focus)
 let homeOverService = false; // Settings opened from the menu, shown over the website
 let resumeOnClose = false;   // the menu paused a video (only with "pause when the menu opens" on)
 let hints = null;            // the controls strip shown over websites
@@ -611,7 +645,7 @@ async function openYouTube(target = {}, { music = false } = {}) {
   const tvHere = () => openService({ ...ytDef(), url: ytTools.tvLink(target) });
   if (mode === 'auto' && await checkVacuumTube()) {
     // (The address goes last, on its own: every VacuumTube version reads it that way.)
-    const r = await handOff('vacuumtube', [ytTools.watchLink(target)], tvHere);
+    const r = await handOff('vacuumtube', [ytTools.vacuumTubeLink(target)], tvHere);
     if (r.ok) return;
   }
   tvHere();
@@ -819,6 +853,7 @@ function toggleOverlay() {
 async function openKeyboard() {
   if (!service || overlayOpen || keyboardOpen) return;
   keyboardOpen = true;
+  keyboardField = serviceField;
   updatePhoneState();
   const phoneInfo = await phone.start().catch(() => null);
   if (!keyboardOpen) return;
@@ -830,6 +865,7 @@ async function openKeyboard() {
     motion: CONFIG.motion,
     mode: 'keyboard',
     kbConfirm: CONFIG.kbConfirm,
+    suggest: CONFIG.suggest.on,
     field: serviceField,
     phone: phoneInfo && !phoneInfo.error ? { ...phoneInfo, seen: phoneSeen } : null,
   });
@@ -854,8 +890,8 @@ function sendNamedKey(wc, name) {
 ipcMain.on('field', (event, info) => {
   if (!service || event.sender !== service.webContents) return;
   if (info && info.focused) {
-    serviceField = { label: String(info.label || 'Text').slice(0, 60), kind: info.kind === 'password' ? 'password' : 'text' };
-    if (keyboardOpen) overlay.webContents.send('kb:field', serviceField);
+    serviceField = { label: String(info.label || 'Text').slice(0, 60), kind: ['password', 'search', 'email'].includes(info.kind) ? info.kind : 'text' };
+    if (keyboardOpen) { keyboardField = serviceField; overlay.webContents.send('kb:field', serviceField); }
   } else {
     serviceField = null;
   }
@@ -1559,7 +1595,7 @@ ipcMain.handle('ui:clipboard-key', async (event, kind = 'tmdb') => {
   const text = String((await clipboard.readText()) || '').trim();
   if (kind === 'watchmode') return /^[A-Za-z0-9]{20,64}$/.test(text) && text !== CONFIG.watchmodeKey ? text : null;
   if (kind === 'trakt') return trakt.findCredentials(text) ? text : null;
-  if (kind === 'lastfm') return /^[0-9a-f]{32}$/i.test(text) && text.toLowerCase() !== CONFIG.music.lastfmKey ? text : null;
+  if (kind === 'lastfm') return /^[0-9a-f]{32}$/i.test(text) && ![CONFIG.music.lastfmKey, CONFIG.music.lastfm.secret].includes(text.toLowerCase()) ? text : null;
   return KEY_PATTERN.test(text) && text !== CONFIG.tmdbKey ? text : null;
 });
 
@@ -1614,7 +1650,18 @@ ipcMain.handle('ui:firewall-allow', async (event) => {
   }
 });
 ipcMain.on('ui:phone-mode', (event, mode, keyFor = 'tmdb') => {
-  if (fromHome(event)) phone.setState({ mode: mode === 'key' ? 'key' : 'text', keyFor: ['tmdb', 'watchmode', 'trakt', 'live', 'lastfm'].includes(keyFor) ? keyFor : 'tmdb' });
+  if (!fromHome(event)) return;
+  phone.setState({ mode: mode === 'key' ? 'key' : 'text', keyFor: ['tmdb', 'watchmode', 'trakt', 'live', 'lastfm'].includes(keyFor) ? keyFor : 'tmdb' });
+  updatePhoneState(); // (back to "Search", after the typing screen named its own field)
+});
+
+// The typing screen: the phone types into it, under its own name ("Your Last.fm shared secret"),
+// with dots for passwords. Answers the code to scan, as ui:phone does.
+ipcMain.handle('ui:phone-ask', async (event, label, secret) => {
+  if (!fromHome(event)) return null;
+  phone.setState({ mode: 'text', label: String(label || 'Text').slice(0, 60), kind: secret ? 'password' : 'text' });
+  const info = await phone.start().catch(() => ({ error: 'failed' }));
+  return info && !info.error ? { ...info, seen: phoneSeen } : info;
 });
 
 ipcMain.handle('ui:stores', (event) => (fromOurPages(event)
@@ -1693,9 +1740,11 @@ function fillScript(kind, value) {
 
 const GRAB_NAMES = { tmdb: 'TMDB', watchmode: 'Watchmode', trakt: 'Trakt', lastfm: 'Last.fm' };
 // A Last.fm key: 32 letters and numbers (0-9, a-f), shown next to "API key".
+// Its shared secret (needed for scrobbling) is shown just below it, and is picked up too.
 const LASTFM_IN = (text) => {
   const near = /api\s*key[^0-9a-f]{0,40}([0-9a-f]{32})\b/i.exec(text);
-  return near ? near[1] : null;
+  const secret = /shared\s*secret[^0-9a-f]{0,40}([0-9a-f]{32})\b/i.exec(text);
+  return near ? `${near[1]}${secret ? ` ${secret[1]}` : ''}` : null;
 };
 
 async function grabKeyFromPage() {
@@ -1746,15 +1795,52 @@ async function setAnyKey(kind, raw) {
   return { error: 'failed' };
 }
 
+// A Last.fm key, its shared secret, or both. Both look alike (32 letters and numbers), so whichever
+// Last.fm accepts as a key is the key, and the other is checked as that key's secret. So from the
+// phone you can paste one, then the other, in either order. ("key secret" comes from reading
+// Last.fm's page.) A new key signs you out of scrobbling (the old sign-in and secret belonged to
+// the old key); removing the key (empty) forgets everything. Answers { ok, saved: 'key' | 'secret'
+// | 'both', message } so the phone can say what it got.
 async function setLastfmKey(raw) {
-  const key = String(raw || '').trim().toLowerCase();
-  if (key && !/^[0-9a-f]{32}$/.test(key)) return { error: 'not-a-key' };
-  if (key) {
-    try { await music.lastfmCheck(key); } catch (err) { return { error: err.code || 'failed' }; }
+  const text = String(raw || '').trim().toLowerCase();
+  if (!text) {
+    CONFIG.music.lastfmKey = '';
+    CONFIG.music.lastfm = cleanLastfm({ scrobble: CONFIG.music.lastfm.scrobble, skip: CONFIG.music.lastfm.skip });
+    saveMusic();
+    return { ok: true };
   }
-  CONFIG.music.lastfmKey = key;
+  const codes = [...new Set(text.match(/\b[0-9a-f]{32}\b/g) || [])].slice(0, 2);
+  if (!codes.length) return { error: 'not-a-key' };
+  const isKey = async (k) => {
+    try { await music.lastfmCheck(k); return true; } catch (err) { if (err.code === 'bad-key') return false; throw err; }
+  };
+  const isSecret = async (key, s) => {
+    try { await lastfm.start({ key, secret: s }); return true; } catch (err) { if (err.code === 'bad-secret') return false; throw err; }
+  };
+  let key = '';
+  let secret = '';
+  try {
+    for (const c of codes) if (!key && await isKey(c)) key = c;
+    const other = codes.find((c) => c !== key);
+    const forKey = key || CONFIG.music.lastfmKey; // a secret on its own goes with the key you have
+    if (other && forKey && await isSecret(forKey, other)) secret = other;
+    // (No key yet and one code that isn't a key: maybe the secret, pasted first.)
+    if (!key && !secret) return { error: forKey && codes.length === 1 ? 'bad-either' : !forKey && codes.length === 1 ? 'key-first' : 'bad-key' };
+  } catch (err) { return { error: err.code || 'failed' }; }
+  if (key && key !== CONFIG.music.lastfmKey) {
+    const lf = CONFIG.music.lastfm;
+    CONFIG.music.lastfm = cleanLastfm({ scrobble: lf.scrobble, skip: lf.skip });
+    CONFIG.music.lastfmKey = key;
+  }
+  if (secret) CONFIG.music.lastfm.secret = secret;
   saveMusic();
-  return { ok: true };
+  const saved = key && secret ? 'both' : key ? 'key' : 'secret';
+  const message = {
+    both: 'Saved your key and shared secret. Now sign in to scrobble on your TV.',
+    key: CONFIG.music.lastfm.secret ? 'Saved your key.' : 'Saved your key. For scrobbling, paste the shared secret too.',
+    secret: 'Saved your shared secret. Now sign in to scrobble on your TV.',
+  }[saved];
+  return { ok: true, saved, message };
 }
 
 async function setWatchmodeKey(key) {
@@ -1902,6 +1988,66 @@ ipcMain.handle('ui:set-kb-confirm', (event, on) => {
   if (!fromHome(event)) return null;
   CONFIG.kbConfirm = Boolean(on);
   saveUserConfig({ kbConfirm: CONFIG.kbConfirm });
+  return settingsState();
+});
+
+// ------------------------------------------------------------ suggestions while typing
+//
+// The keyboards ask after a short pause in typing (never on every key). where: 'search' or
+// 'music' (the Search screen, which passes the titles it's showing), 'radio' (station search),
+// 'words' (just finishing words), 'web' (a website's text field; what kind of field it is comes
+// from the website's page: search boxes get titles too, email fields only email endings, and
+// password fields nothing).
+
+const suggester = createSuggester();
+const titleCache = new Map(); // TMDB titles for website search boxes, by what was typed
+
+async function tmdbTitles(text) {
+  const q = text.trim().toLowerCase();
+  if (q.length < 2 || !CONFIG.tmdbKey) return [];
+  if (titleCache.has(q)) return titleCache.get(q);
+  let titles = [];
+  try { titles = (await tmdb.search(q)).filter((c) => c.kind === 'movie' || c.kind === 'tv').map((c) => c.title); } catch { /* no titles, then */ }
+  titleCache.set(q, titles);
+  if (titleCache.size > 60) titleCache.delete(titleCache.keys().next().value);
+  return titles;
+}
+
+ipcMain.handle('suggest:get', async (event, text, where, titles) => {
+  if (!fromOurPages(event) || !CONFIG.suggest.on) return [];
+  const t = String(text || '').slice(0, 300);
+  const w = String(where || '');
+  const fromHomePage = fromHome(event);
+  if (w === 'web') {
+    const f = keyboardField;
+    if (fromHomePage || !keyboardOpen || !f || f.kind === 'password') return [];
+    const isSearch = f.kind === 'search';
+    return suggester.suggest(t, { past: isSearch ? CONFIG.suggest.past.web : [], titles: isSearch ? await tmdbTitles(t) : [], words: f.kind !== 'email' });
+  }
+  if (!fromHomePage) return [];
+  const known = Array.isArray(titles) ? titles.filter((x) => typeof x === 'string').map((x) => x.slice(0, 120)).slice(0, 40) : [];
+  if (w === 'words') return suggester.suggest(t, {});
+  if (!PAST_PLACES.includes(w)) return [];
+  return suggester.suggest(t, { past: CONFIG.suggest.past[w], titles: known });
+});
+
+// A search worth remembering (you opened something it found, or sent it).
+ipcMain.on('suggest:remember', (event, text, where) => {
+  if (!fromOurPages(event) || !CONFIG.suggest.on || !CONFIG.suggest.remember) return;
+  const w = String(where || '');
+  if (!PAST_PLACES.includes(w)) return;
+  if (w === 'web' ? fromHome(event) || !keyboardField || keyboardField.kind !== 'search' : !fromHome(event)) return;
+  CONFIG.suggest.past[w] = rememberIn(CONFIG.suggest.past[w], text);
+  saveUserConfig({ suggest: CONFIG.suggest });
+});
+
+// Settings → Controller → On-screen keyboard.
+ipcMain.handle('ui:set-suggest', (event, patch) => {
+  if (!fromHome(event) || !patch || typeof patch !== 'object') return null;
+  if (typeof patch.on === 'boolean') CONFIG.suggest.on = patch.on;
+  if (typeof patch.remember === 'boolean') CONFIG.suggest.remember = patch.remember;
+  if (patch.forget || patch.remember === false) for (const k of PAST_PLACES) CONFIG.suggest.past[k] = [];
+  saveUserConfig({ suggest: CONFIG.suggest });
   return settingsState();
 });
 
@@ -2689,6 +2835,8 @@ async function playQueue(queue, index, how, played) {
   });
   if (entries.some((e) => !e.url)) throw Object.assign(new Error('no address'), { code: 'failed' });
   const scrobbled = new Set();
+  const lfDone = new Set();
+  const startedAt = {}; // when each song started (seconds), for Last.fm
   stepAside('mpv');
   const sess = {};
   const ctl = player.play({
@@ -2703,10 +2851,24 @@ async function playQueue(queue, index, how, played) {
     log, logFile: mpvLogFile(how),
     autoplay: true,
     // Navidrome keeps "now playing" and play counts.
-    onFileStart: (i) => { const q = queue[i]; if (q && sub(q)) subsonic.scrobble(q.server, q.track.id, false); },
+    // Last.fm (when you've signed in and scrobbling is on) gets "now playing", then the song once
+    // you've heard half of it or four minutes.
+    onFileStart: (i) => {
+      const q = queue[i];
+      if (!q) return;
+      if (sub(q)) subsonic.scrobble(q.server, q.track.id, false);
+      startedAt[i] = Math.floor(Date.now() / 1000);
+      if (q.track.artist || q.albumArtist) lastfmSend(q.server, 'nowPlaying', lastfmTrack(q));
+    },
     onFileEnd: (i, reason, pos, dur) => {
       const q = queue[i];
       if (q && sub(q) && !scrobbled.has(i) && (reason === 'eof' || (dur && pos >= dur / 2))) { scrobbled.add(i); subsonic.scrobble(q.server, q.track.id, true); }
+      const length = dur || (q && q.track.seconds) || 0;
+      const heard = reason === 'eof' ? length : pos;
+      if (q && !lfDone.has(i) && startedAt[i] && (q.track.artist || q.albumArtist) && lastfmCounts(length, heard)) {
+        lfDone.add(i);
+        lastfmSend(q.server, 'scrobble', lastfmTrack(q, length), startedAt[i]);
+      }
     },
     onState: () => {},
     onMessage: (args) => { if (args[0] === 'tv-overlay-stop') confirmStop(sess, ctl, 'listening'); },
@@ -2725,6 +2887,13 @@ const publicMusic = () => ({
   useJellyfin: CONFIG.music.useJellyfin, usePlex: CONFIG.music.usePlex,
   jellyfin: signedInServers().length, plex: plexServers().length,
   listenbrainz: CONFIG.music.listenbrainz, lastfm: CONFIG.music.lastfmKey ? maskKey(CONFIG.music.lastfmKey) : '',
+  lastfmUser: CONFIG.music.lastfm.user, lastfmSecret: Boolean(CONFIG.music.lastfm.secret), scrobble: CONFIG.music.lastfm.scrobble,
+  lastfmSigningIn: Boolean(lastfmSignIn),
+  // Each music server, with whether its plays are scrobbled.
+  scrobbleServers: musicServers().map((s) => ({
+    id: s.id, name: s.name, kind: s.type === 'subsonic' ? s.kind || 'Subsonic' : s.type === 'plex' ? 'Plex' : 'Jellyfin',
+    on: !CONFIG.music.lastfm.skip.includes(s.id),
+  })),
   shelves: { ...CONFIG.music.shelves },
 });
 function saveMusic() {
@@ -2774,6 +2943,77 @@ musicHandler('music:listenbrainz', async (name) => {
   saveMusic();
   return publicMusic();
 });
+// ---- Last.fm scrobbling: signing in, on or off, signing out.
+const lastfm = createLastfm({ log });
+let lastfmSignIn = null; // { timer, until } while waiting for you to press Allow on Last.fm
+const lastfmAuth = () => ({ key: CONFIG.music.lastfmKey, secret: CONFIG.music.lastfm.secret, session: CONFIG.music.lastfm.session });
+
+function stopLastfmSignIn() {
+  if (lastfmSignIn) clearInterval(lastfmSignIn.timer);
+  lastfmSignIn = null;
+}
+
+// Open Last.fm's "allow access" page here, and wait (up to 10 minutes) for you to press Allow.
+musicHandler('music:lastfm-signin', async () => {
+  const { key, secret } = lastfmAuth();
+  if (!key) throw Object.assign(new Error('no key'), { code: 'no-key' });
+  if (!secret) throw Object.assign(new Error('no secret'), { code: 'no-secret' });
+  stopLastfmSignIn();
+  const { token, page } = await lastfm.start({ key, secret });
+  const until = Date.now() + 10 * 60e3;
+  const timer = setInterval(async () => {
+    if (!lastfmSignIn || lastfmSignIn.timer !== timer) return;
+    if (Date.now() > until) { stopLastfmSignIn(); saveMusic(); return; }
+    try {
+      const { user, session } = await lastfm.finish({ key, secret, token });
+      stopLastfmSignIn();
+      Object.assign(CONFIG.music.lastfm, { user, session, scrobble: true });
+      saveMusic();
+      log.info('[lastfm] signed in; scrobbling on');
+      if (current && current.id === 'lastfm-auth') goHome();
+      home.webContents.send('lastfm:signed-in', user);
+    } catch (err) {
+      if (err.code !== 'not-yet' && err.code !== 'unreachable' && err.code !== 'busy') { stopLastfmSignIn(); saveMusic(); log.warn(`[lastfm] sign-in stopped: ${err.code}`); }
+    }
+  }, 3000);
+  lastfmSignIn = { timer, until };
+  openService({ id: 'lastfm-auth', name: 'Last.fm', url: page, returnLabel: 'Back to settings', searchUrl: null });
+  return publicMusic();
+});
+musicHandler('music:lastfm-scrobble', (on) => {
+  CONFIG.music.lastfm.scrobble = Boolean(on);
+  saveMusic();
+  return publicMusic();
+});
+musicHandler('music:lastfm-server', (id, on) => {
+  const skip = new Set(CONFIG.music.lastfm.skip);
+  if (on) skip.delete(String(id)); else skip.add(String(id));
+  CONFIG.music.lastfm.skip = [...skip].slice(0, 50);
+  saveMusic();
+  return publicMusic();
+});
+musicHandler('music:lastfm-signout', () => {
+  stopLastfmSignIn();
+  Object.assign(CONFIG.music.lastfm, { session: '', user: '' });
+  saveMusic();
+  return publicMusic();
+});
+
+// What a song in the queue is, for Last.fm.
+function lastfmTrack(q, seconds) {
+  const t = q.track;
+  return { artist: t.artist || q.albumArtist || '', title: t.title || '', album: q.album || t.album || '', albumArtist: q.albumArtist || '', duration: seconds || t.seconds || 0, trackNumber: t.n || 0 };
+}
+const scrobbling = () => Boolean(CONFIG.music.lastfm.scrobble && CONFIG.music.lastfm.session && CONFIG.music.lastfmKey && CONFIG.music.lastfm.secret);
+function lastfmSend(server, what, ...args) {
+  if (!scrobbling() || CONFIG.music.lastfm.skip.includes(server.id)) return;
+  lastfm[what](lastfmAuth(), ...args).catch((err) => {
+    log.warn(`[lastfm] ${what}: ${err.code || err.message}`);
+    // Signed out on Last.fm's side (access taken back): forget the sign-in, so Settings says so.
+    if (err.code === 'signed-out') { Object.assign(CONFIG.music.lastfm, { session: '', user: '' }); saveMusic(); }
+  });
+}
+
 musicHandler('music:shelf', (id, on) => {
   if (['unofficial', 'tribute', 'appears', 'related'].includes(String(id))) CONFIG.music.shelves[String(id)] = Boolean(on);
   saveMusic();

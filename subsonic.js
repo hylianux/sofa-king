@@ -1,11 +1,15 @@
 'use strict';
 
-// Navidrome, and other servers that speak the Subsonic language (Airsonic, Gonic...).
+// Navidrome, and every other server that speaks the Subsonic language (Gonic, Airsonic-Advanced,
+// Ampache, LMS, Supysonic, Nextcloud Music...).
 //
-// Subsonic normally puts the sign-in in the web address. We never do: every request is sent as a
-// form (POST), with the sign-in in the body, which Navidrome and other OpenSubsonic servers accept.
-// We don't keep your password either: only a one-way scrambled form of it (a "token") and the
-// random "salt" used to make it, which the server checks without needing the password again.
+// Subsonic normally puts the sign-in in the web address. We send it as a form (POST) instead, with
+// the sign-in in the body, which Navidrome and other OpenSubsonic servers accept. A server that
+// only reads the address (found when it's added: the form is refused, the address works) gets the
+// standard Subsonic way, and is marked `get` so it's remembered. Either way the sign-in only ever
+// goes to that server, it's never in the log, and mpv never sees it (songs go through the app's
+// relay). We don't keep your password either: only a one-way scrambled form of it (a "token") and
+// the random "salt" used to make it, which the server checks without needing the password again.
 
 const crypto = require('crypto');
 
@@ -42,17 +46,20 @@ function createSubsonic({ log = { debug() {} } } = {}) {
     return body;
   }
 
+  // The request itself: a form, or (for servers marked `get`) the same thing in the address.
+  function send(server, method, params, headers, extra = {}) {
+    if (server.get) return fetch(`${server.url}/rest/${method}?${form(server, params)}`, { headers, ...extra });
+    return fetch(`${server.url}/rest/${method}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers }, body: form(server, params), ...extra,
+    });
+  }
+
   // A request that answers with JSON.
   async function call(server, method, params = {}, { timeout = TIMEOUT } = {}) {
     const started = Date.now();
     let res;
     try {
-      res = await fetch(`${server.url}/rest/${method}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-        body: form(server, params),
-        signal: AbortSignal.timeout(timeout),
-      });
+      res = await send(server, method, params, { Accept: 'application/json' }, { signal: AbortSignal.timeout(timeout) });
     } catch (err) {
       log.debug(`[subsonic] ${method} at ${server.url} failed: ${err.name === 'TimeoutError' ? 'no answer' : err.message}`);
       throw Object.assign(new Error('unreachable'), { code: 'unreachable' });
@@ -65,8 +72,11 @@ function createSubsonic({ log = { debug() {} } } = {}) {
     if (!r) throw Object.assign(new Error('not subsonic'), { code: 'not-subsonic' });
     if (r.status !== 'ok') {
       const code = r.error && r.error.code;
-      // 40: wrong name or password; 41: token sign-in not supported; 50: not allowed.
-      throw Object.assign(new Error((r.error && r.error.message) || 'failed'), { code: code === 40 || code === 41 || code === 50 ? 'unauthorized' : 'failed', subsonicCode: code });
+      // 10: something missing (a server that didn't read the form); 40: wrong name or password;
+      // 41: this server can't check a scrambled sign-in (it wants the password itself, which we
+      // don't keep); 50: not allowed.
+      const why = code === 41 ? 'no-token' : code === 40 || code === 50 ? 'unauthorized' : 'failed';
+      throw Object.assign(new Error((r.error && r.error.message) || 'failed'), { code: why, subsonicCode: code });
     }
     return r;
   }
@@ -77,13 +87,22 @@ function createSubsonic({ log = { debug() {} } } = {}) {
     if (!base) throw Object.assign(new Error('bad address'), { code: 'bad-address' });
     const auth = signIn(password);
     const server = { url: base, user: String(user || '').trim(), ...auth };
-    const r = await call(server, 'ping');
+    let r;
+    try {
+      r = await call(server, 'ping');
+    } catch (err) {
+      // Refused as a form: maybe it only reads the address (older Subsonic servers).
+      if (err.code === 'unreachable') throw err;
+      try { r = await call({ ...server, get: true }, 'ping'); } catch { throw err; }
+      server.get = true;
+      log.debug('[subsonic] this server reads the sign-in from the address only');
+    }
     let host = base;
     try { host = new URL(base).hostname; } catch { /* keep the address */ }
     const kind = r.type ? r.type.charAt(0).toUpperCase() + r.type.slice(1) : 'Subsonic';
     return {
       id: `sub-${crypto.createHash('sha1').update(`${base}|${server.user}`).digest('hex').slice(0, 12)}`,
-      type: 'subsonic', name: `${kind} on ${host}`, kind, version: r.serverVersion || r.version || '', ...server,
+      type: 'subsonic', name: `${kind} on ${host}`, kind, version: r.serverVersion || r.version || '', ...server, get: Boolean(server.get),
     };
   }
 
@@ -160,13 +179,7 @@ function createSubsonic({ log = { debug() {} } } = {}) {
   }
 
   // The raw response for a song or a picture (for the app's own little relay; see main.js).
-  function fetchRaw(server, method, params, headers = {}) {
-    return fetch(`${server.url}/rest/${method}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
-      body: form(server, params),
-    });
-  }
+  const fetchRaw = (server, method, params, headers = {}) => send(server, method, params, headers);
   const cover = (server, id, size = 500) => fetchRaw(server, 'getCoverArt', { id, size }, { Accept: 'image/*' });
   const stream = (server, id, range) => fetchRaw(server, 'stream', { id, format: 'raw' }, range ? { Range: range } : {});
 

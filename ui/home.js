@@ -586,13 +586,13 @@ function oskBadges() {
 tv.bindings().then(() => setTimeout(oskBadges, 0));
 tv.onBindings(() => setTimeout(oskBadges, 0));
 
-// Left and right loop round each line of the search keyboard.
+// Left and right loop round each line of the search keyboard (and of its suggestions).
 document.addEventListener('keydown', (e) => {
   if (screen !== 'search' || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
-  const key = document.activeElement && document.activeElement.closest('#osk .key');
+  const key = document.activeElement && document.activeElement.closest('#osk .key, #osk-sugg .sugg');
   if (!key) return;
   const top = key.offsetTop;
-  const line = [...$('osk').children].filter((k) => Math.abs(k.offsetTop - top) < 4);
+  const line = [...key.parentElement.children].filter((k) => Math.abs(k.offsetTop - top) < 4);
   const i = line.indexOf(key);
   if (e.key === 'ArrowRight' && i === line.length - 1) { e.preventDefault(); e.stopImmediatePropagation(); line[0].focus(); }
   else if (e.key === 'ArrowLeft' && i === 0) { e.preventDefault(); e.stopImmediatePropagation(); line[line.length - 1].focus(); }
@@ -610,6 +610,7 @@ function openSearch(opts) {
   go('search');
   updateQueryView();
   $('osk').firstElementChild.focus();
+  searchSuggestSoon(0);
 }
 
 function type(ch) { setQuery((search.query + ch).replace(/^\s+/, '').slice(0, 60)); }
@@ -625,8 +626,10 @@ function setQuery(q) {
   search.person = null;
   updateQueryView();
   clearTimeout(search.timer);
+  searchSuggestSoon();
   if (q.trim().length < 2) {
     search.results = [];
+    searchSugg.titles = [];
     renderResults([], 'Type to search');
     return;
   }
@@ -644,7 +647,55 @@ async function runSearch() {
   if (res.error) return showMessage(res.error);
   search.results = res.ok;
   renderResults(res.ok, res.ok.length ? labelFor(q) : `Nothing found for “${q}”`);
+  searchSugg.titles = res.ok.map((r) => r.title);
+  searchSuggestSoon(0);
 }
+
+// ------------------------------------------------------------ search suggestions
+//
+// A row above the search keyboard (Up from the top keys): your earlier searches, titles from the
+// results, and the word you're typing finished. Asked for after a short pause in typing. The row
+// keeps two lines' height whether or not anything's in it, so the keys never move.
+
+const searchSugg = { timer: 0, seq: 0, titles: [], cameFrom: null };
+
+function searchSuggestSoon(ms = 250) {
+  clearTimeout(searchSugg.timer);
+  searchSugg.timer = setTimeout(searchSuggest, ms);
+}
+
+async function searchSuggest() {
+  const seq = ++searchSugg.seq;
+  const list = settings.suggestOn === false ? [] : await tv.suggest(search.query, search.music ? 'music' : 'search', searchSugg.titles);
+  if (seq !== searchSugg.seq || screen !== 'search') return;
+  const row = $('osk-sugg');
+  const at = [...row.children].indexOf(document.activeElement);
+  row.replaceChildren(...(list || []).map((item) => el('button', {
+    class: `sugg ${item.kind}`, nav: true, onclick: () => pickSearchSugg(item),
+  }, el('span', { textContent: item.label }))));
+  // Only what fits on the row's two lines.
+  const bottom = row.getBoundingClientRect().bottom;
+  for (const b of [...row.children]) if (b.getBoundingClientRect().bottom > bottom + 2) b.remove();
+  if (at >= 0) (row.children[Math.min(at, row.children.length - 1)] || backToKeys()).focus();
+}
+
+const backToKeys = () => (searchSugg.cameFrom && searchSugg.cameFrom.isConnected ? searchSugg.cameFrom : $('osk').firstElementChild);
+
+function pickSearchSugg(item) {
+  const back = backToKeys();
+  setQuery(item.value.replace(/^\s+/, '').slice(0, 60));
+  back.focus();
+}
+
+// Remember which key you came up from, to go back to it after picking.
+$('osk-sugg').addEventListener('focusin', (e) => {
+  if (e.relatedTarget && $('osk').contains(e.relatedTarget)) searchSugg.cameFrom = e.relatedTarget;
+});
+
+// Opening something a search found remembers the search (for suggesting it again).
+$('results').addEventListener('click', (e) => {
+  if (e.target.closest('button') && search.query.trim().length >= 2) tv.suggestRemember(search.query, search.music ? 'music' : 'search');
+}, true);
 
 function showMessage(code) {
   $('results').replaceChildren();
@@ -1180,6 +1231,7 @@ function renderStatus(s) {
   applyLayout(s.layout); applyLook(s.look);
   settings.kbConfirm = s.kbConfirm !== false;
   $('s-kb-confirm').classList.toggle('on', settings.kbConfirm);
+  renderSuggestSettings(s.suggest);
   renderPlayerChoice(s.jellyfinPlayer);
   renderPlayback(s.playback);
   $('s-pause').setAttribute('aria-pressed', String(Boolean(s.pauseOnMenu)));
@@ -1221,14 +1273,15 @@ async function refreshSettings() {
 }
 
 // If there's a TMDB key on the clipboard (say, copied from TMDB's site), offer it straight away.
-async function checkClipboard() {
+// (focus: false when Settings was opened on another tab, so it isn't pulled over to General.)
+async function checkClipboard({ focus = true } = {}) {
   const key = await tv.clipboardKey();
   settings.found = key;
   $('s-found').hidden = !key;
   if (key) $('s-how').hidden = true;
   if (key) {
     $('s-found-key').textContent = mask(key);
-    $('s-save').focus();
+    if (focus) $('s-save').focus();
   }
   return key;
 }
@@ -1262,7 +1315,7 @@ async function openSettings(opts) {
   refreshApps();
   renderServers((await tv.jfList()).ok || []);
   await refreshSettings();
-  await checkClipboard();
+  await checkClipboard({ focus: !asked || asked === 'general' });
 }
 
 function leaveSettings() {
@@ -1303,6 +1356,7 @@ $('s-hints').addEventListener('click', async () => {
 $('s-remove').addEventListener('click', () => saveKey(''));
 $('s-web').addEventListener('click', () => {
   note('');
+  settings.toTmdb = true; // (coming back, the copied key is looked for)
   tv.open('tmdb');
 });
 $('s-clip').addEventListener('click', async () => {
@@ -1394,7 +1448,9 @@ tv.onSettings((s) => {
   }
 });
 
-// Coming back from TMDB's site: look for a freshly copied key.
+// Coming back to Settings (from a website, mpv, another app). Only coming back from TMDB's site
+// looks for a freshly copied key and moves to it; anything else leaves you where you were (it used
+// to jump to General's "Use copied key" every time, wherever you'd been).
 tv.onHomeShown(() => {
   settings.overService = false; // nothing paused underneath any more
   if (screen === 'setup') setupBack();
@@ -1402,7 +1458,8 @@ tv.onHomeShown(() => {
   if (screen === 'settings') {
     $('s-eyebrow').textContent = 'SOFA King';
     refreshSettings();
-    checkClipboard().then((key) => { if (!key) $('s-clip').focus(); });
+    if (settings.toTmdb) checkClipboard().then((key) => { if (!key) $('s-clip').focus(); });
+    settings.toTmdb = false;
   }
 });
 
@@ -1432,7 +1489,7 @@ tv.onRemoteKey((name) => {
 //
 // ask() shows a full on-screen keyboard and resolves with what was typed, or null if cancelled.
 
-const ask = { value: '', secret: false, resolve: null };
+const ask = { value: '', secret: false, resolve: null, suggest: '', timer: 0, seq: 0, phoneSeq: 0 };
 
 function showAsk() {
   const shown = ask.secret ? '•'.repeat(ask.value.length) : ask.value;
@@ -1440,7 +1497,18 @@ function showAsk() {
   $('ask-field').classList.toggle('empty', !ask.value);
 }
 
-function setAsk(text) { ask.value = String(text).slice(0, 300); showAsk(); }
+function setAsk(text) { ask.value = String(text).slice(0, 300); showAsk(); askSuggest(); }
+
+// Suggestions (only where askFor asked for them), after a short pause in typing.
+function askSuggest() {
+  if (!ask.suggest) return;
+  clearTimeout(ask.timer);
+  ask.timer = setTimeout(async () => {
+    const seq = ++ask.seq;
+    const list = await tv.suggest(ask.value, ask.suggest);
+    if (seq === ask.seq && screen === 'ask' && ask.suggest) askKeys.suggestions(list);
+  }, 250);
+}
 function askType(ch) { setAsk(ask.value + ch); }
 function askErase() { setAsk(ask.value.slice(0, -1)); }
 
@@ -1451,6 +1519,7 @@ const askKeys = window.TVKeyboard.create({
   onErase: () => askErase(),
   onSubmit: () => finishAsk(ask.value),
   onCancel: () => finishAsk(null),
+  onPick: (item) => setAsk(item.value),
   confirm: () => settings.kbConfirm !== false,
   buttonName: (a) => window.tvButtons.buttonFor(a),
   describe: () => (ask.secret ? '•'.repeat(ask.value.length) : ask.value),
@@ -1469,24 +1538,48 @@ document.addEventListener('keyup', (e) => { if (screen === 'ask' && e.key === 'S
 tv.onHold((action, down) => { if (screen === 'ask') askKeys.hold(action, down); });
 tv.onTypingDone(() => { if (screen === 'ask') askKeys.handle('menu'); });
 
-function askFor({ label, eyebrow = '', hint = '', value = '', secret = false, placeholder = '' }) {
+// suggest: what to suggest while typing ('words', or 'radio' for earlier station searches too);
+// nothing for addresses, names and passwords.
+function askFor({ label, eyebrow = '', hint = '', value = '', secret = false, placeholder = '', suggest = '' }) {
   if (ask.resolve) finishAsk(null);
   go('ask');
   ask.secret = secret;
+  ask.suggest = !secret && settings.suggestOn !== false ? suggest : '';
   $('ask-eyebrow').textContent = eyebrow;
   $('ask-label').textContent = label;
   $('ask-hint').textContent = hint;
   $('ask-field').dataset.placeholder = placeholder;
+  askKeys.reset({ suggest: Boolean(ask.suggest) });
   setAsk(value);
-  askKeys.reset();
   tv.setTyping(true);
-  tv.phoneMode('text');
+  askPhone(label, secret);
   return new Promise((resolve) => { ask.resolve = resolve; });
 }
+
+// The code to scan, so the phone can type here (hidden if this computer isn't on a network).
+async function askPhone(label, secret) {
+  const seq = ++ask.phoneSeq;
+  $('ask-phone').hidden = true;
+  const info = await tv.phoneAsk(label, secret);
+  if (seq !== ask.phoneSeq || screen !== 'ask' || !info || info.error) return;
+  $('ask-qr').innerHTML = info.qr; // an SVG the app made itself from the phone page's address
+  $('ask-phone-addr').textContent = info.address || '';
+  askPhoneSeen(info.seen);
+  $('ask-phone').hidden = false;
+}
+function askPhoneSeen(seen) {
+  $('ask-phone-help').textContent = seen ? 'Your phone is connected: type there and tap Send.' : 'Scan with your camera. Phone and TV need the same Wi-Fi.';
+  $('ask-phone-help').classList.toggle('good', Boolean(seen));
+}
+tv.onPhoneConnected(() => { if (screen === 'ask') askPhoneSeen(true); });
 
 function finishAsk(result) {
   const resolve = ask.resolve;
   ask.resolve = null;
+  ask.phoneSeq++;
+  tv.phoneMode('text');
+  clearTimeout(ask.timer);
+  if (result && ask.suggest === 'radio') tv.suggestRemember(result, 'radio');
   tv.setTyping(false);
   const prev = trail.pop();
   if (prev) {
@@ -1927,12 +2020,13 @@ function suPage({ steps, title, body, actions }) {
   $('su-actions').firstElementChild?.focus();
 }
 
-async function openSetup(kind) {
+// (step: where to start, when not at the beginning: Last.fm's 'secret', say.)
+async function openSetup(kind, step = 1) {
   if (screen !== 'setup') go('setup');
   setup.kind = kind;
   const s = await tv.settings();
   if (kind === 'trakt' && s.trakt.hasApp && !s.trakt.connected) return setupStep(3);
-  setupStep(1);
+  setupStep(step);
 }
 
 function leaveSetup() {
@@ -1974,6 +2068,8 @@ async function setupSave(text) {
   suNote({
     'not-a-key': setup.kind === 'trakt' ? 'That doesn\'t look like a Client ID. Copy the code shown next to Client ID on your Trakt app.' : `That doesn't look like a ${KIND_NAMES[setup.kind]} key.`,
     'bad-key': `${KIND_NAMES[setup.kind]} didn't accept that key. Check you copied all of it.`,
+    'key-first': 'That isn\'t a key Last.fm knows. If it\'s the shared secret, add the API key first, then the secret.',
+    'bad-either': 'Last.fm didn\'t accept that as a key, or as the shared secret for your key. Check you copied all of it.',
     'bad-client': 'Trakt didn\'t recognise that Client ID. Check you copied all of it.',
     'quota': 'That key has used up this month\'s lookups. It works again next month.',
     'not-a-url': 'That doesn\'t look like a web address. It starts with http:// or https://.',
@@ -2009,6 +2105,8 @@ async function setupPhone() {
     ? 'Paste your channel list address on the page that opens. It saves by itself. Your phone and TV need to be on the same Wi-Fi.'
     : setup.kind === 'trakt'
     ? 'The page that opens links to Trakt\'s developer site. Make the app there, then paste its Client ID and tap Save. Your phone and TV need to be on the same Wi-Fi.'
+    : setup.kind === 'lastfm'
+    ? 'Paste your Last.fm API key and shared secret on the page that opens, one after the other. Each saves by itself. Your phone and TV need to be on the same Wi-Fi.'
     : 'Paste your Watchmode key on the page that opens and tap Save. Your phone and TV need to be on the same Wi-Fi.';
   $('su-side-url').textContent = `${info.address} · ${info.network}`;
   $('su-side').hidden = false;
@@ -2075,15 +2173,18 @@ function watchmodeStep(n) {
   tv.wmStatus().then((u) => { if (u && u.quota && $('su-usage')) $('su-usage').textContent = `${u.used ?? 0} of ${u.quota} lookups used this month.`; });
 }
 
-// ---- Last.fm: get a key, bring it here, done.
+// ---- Last.fm: get a key (and its shared secret), bring them here, done. Step 'secret' is for
+// scrobbling when the secret wasn't kept: Last.fm only shows it once, on the page right after the
+// key is made, so the way back is a new key (or typing it, if it was saved somewhere).
 function lastfmStep(n) {
   if (n === 1) {
     suPage({
       steps: [1, 2],
       title: 'Get a free Last.fm key',
-      body: `<p>Last.fm knows which artists people listen to together, so its <strong>related artists</strong> are often better than ListenBrainz's (which the app uses until you add a key). The key is free, for personal use.</p>
-        <p><strong>Easiest: on your phone.</strong> Scan the code, tap <strong>Get a free Last.fm key</strong>, sign in (or make a free account), fill in the form (only <strong>Application name</strong> is needed), then copy the <strong>API key</strong>, go back to the page you scanned, paste it and tap Save.</p>
-        <p class="fine">Or do it here on the TV: once the key shows on Last.fm's page, press Start and choose Use the key on this page.</p>`,
+      body: `<p>Last.fm knows which artists people listen to together, so its <strong>related artists</strong> are often better than ListenBrainz's (which the app uses until you add a key). With it you can also <strong>scrobble</strong>: add what you play to your Last.fm profile. The key is free, for personal use.</p>
+        <p>Making one takes a minute: sign in to Last.fm, fill in a short form (only <strong>Application name</strong> is needed), and submit. The page that comes next shows two codes, the <strong>API key</strong> and the <strong>shared secret</strong>. <strong>Last.fm only ever shows the shared secret on that page</strong>, so bring both over before leaving it (scrobbling needs the secret).</p>
+        <p><strong>Easiest: on your phone.</strong> Scan the code, tap <strong>Get a free Last.fm key</strong>, then paste the API key and the shared secret into the page you scanned, one after the other.</p>
+        <p class="fine">Or do it here on the TV: once the codes show on Last.fm's page, press Start and choose Use the key on this page. Both are read off the page.</p>`,
       actions: [
         ['Do it on my phone', () => { setupStep(2); setupPhone(); }, 'primary'],
         ['Do it here on the TV', () => tv.open('lastfm-key')],
@@ -2096,28 +2197,57 @@ function lastfmStep(n) {
     suPage({
       steps: [2, 2],
       title: 'Add your Last.fm key',
-      body: `<p>Bring the key over whichever way is easiest:</p>
+      body: `<p>Bring the API key (and the shared secret, for scrobbling) over whichever way is easiest:</p>
         <ol>
-          <li><strong>From your phone:</strong> scan the code, paste the API key (not the shared secret), tap Save.</li>
+          <li><strong>From your phone:</strong> scan the code, paste the API key, then the shared secret. Each saves by itself.</li>
           <li><strong>Copied it in the app?</strong> Choose <strong>Use copied key</strong>.</li>
           <li><strong>On Last.fm's page:</strong> open it, then press Start and choose <strong>Use the key on this page</strong>.</li>
-        </ol>`,
+        </ol>
+        <p class="fine">Lost the shared secret? Last.fm won't show it again, but making a new key is quick and shows a new one (the old key just stops being used).</p>`,
       actions: [
         ['Paste it from my phone', setupPhone, 'primary'],
         ['Use copied key', async () => { const k = await setupClipboard(); if (k) setupSave(k); else suNote('There\'s no Last.fm key on the clipboard yet.'); }],
-        ['Open Last.fm\'s page', () => tv.open('lastfm-key')],
+        ['Make a new key here on the TV', () => tv.open('lastfm-key')],
       ],
     });
     setupClipboard();
     return;
   }
+  if (n === 'secret') {
+    suPage({
+      steps: [1, 1],
+      title: 'One more code for scrobbling',
+      body: `<p>Scrobbling needs your key's <strong>shared secret</strong>, and Last.fm only shows it once: on the page right after you make the key. Your API accounts page won't show it again.</p>
+        <p><strong>Didn't keep it?</strong> Make a new key (only <strong>Application name</strong> is needed); this time both codes come over, and the old key just stops being used. <strong>Kept it?</strong> Choose <strong>I have the secret</strong>.</p>`,
+      actions: [
+        ['Make a new key on my phone', () => { setupPhone(); }, 'primary'],
+        ['Make a new key here on the TV', () => tv.open('lastfm-key')],
+        ['I have the secret', async () => {
+          const secret = await askFor({ label: 'Your Last.fm shared secret', eyebrow: 'Set up Last.fm', hint: 'The second code Last.fm showed when you made your key (32 letters and numbers). Easiest pasted on your phone: scan the code.', placeholder: '32 letters and numbers' });
+          if (!secret) return;
+          setupSave(secret);
+        }],
+      ],
+    });
+    $('su-eyebrow').textContent = 'Set up Last.fm · scrobbling';
+    return;
+  }
   suPage({
     steps: [2, 2],
     title: 'Last.fm is on',
-    body: '<p>Artist pages now get their <strong>Related artists</strong> from Last.fm.</p>',
-    actions: [['Done', finishSetup, 'primary']],
+    body: `<p>Artist pages now get their <strong>Related artists</strong> from Last.fm.</p>
+      <p id="su-lf-secret"></p>`,
+    actions: [['Done', finishSetup, 'primary'], ['Sign in to scrobble', () => { finishSetup(); lastfmSignIn(); }]],
   });
   $('su-eyebrow').textContent = 'Set up Last.fm · done';
+  // Scrobbling: ready to sign in, or still missing the secret.
+  tv.musicSettings().then((r) => {
+    const p = $('su-lf-secret');
+    if (!p || !r.ok) return;
+    p.innerHTML = r.ok.lastfmSecret
+      ? 'Want what you play added to your Last.fm profile too? <strong>Sign in to scrobble</strong> opens Last.fm\'s page where you press Allow. (Or later, in Settings → Music → Scrobbling.)'
+      : 'For <strong>scrobbling</strong>, the shared secret is still missing. If your phone is still on Last.fm\'s page, paste the secret into the page you scanned; <strong>Sign in to scrobble</strong> helps if not.';
+  });
 }
 
 // ---- Trakt: account, API app, sign in with a code, done.
@@ -3555,7 +3685,7 @@ async function saveTheme(slot = 0) {
   const old = themeList.saved[n - 1];
   const name = await askFor({
     label: 'Name your theme', eyebrow: old ? `Replacing "${old.name}"` : 'Save theme',
-    hint: 'It goes in your saved themes, with a small picture of how it looks.', placeholder: `My theme ${n}`,
+    hint: 'It goes in your saved themes, with a small picture of how it looks.', placeholder: `My theme ${n}`, suggest: 'words',
   });
   if (screen !== 'settings') back();
   if (name == null) { focusLookControl(`s-saved [data-slot="${n}"]`); return; }
@@ -3637,6 +3767,7 @@ tv.settings().then((s) => {
   applyLayout(s.layout); applyLook(s.look);
   settings.kbConfirm = s.kbConfirm !== false;
   $('s-kb-confirm').classList.toggle('on', settings.kbConfirm);
+  renderSuggestSettings(s.suggest);
 });
 tv.settings().then((s) => { if (s) $('s-fullscreen').classList.toggle('on', s.fullScreen !== false); });
 // Animations on or off (off: everything moves straight to where it's going).
@@ -3732,6 +3863,30 @@ tv.settings().then((s) => renderMpvScreen(s ? s.mpvScreen : null));
 $('s-fullscreen').addEventListener('click', async () => {
   const s = await tv.setFullScreen(!$('s-fullscreen').classList.contains('on'));
   if (s) $('s-fullscreen').classList.toggle('on', Boolean(s.fullScreen));
+});
+// Suggestions while typing: on or off, remembering searches, forgetting them.
+function renderSuggestSettings(g) {
+  if (!g) return;
+  settings.suggestOn = g.on !== false;
+  $('s-suggest').classList.toggle('on', settings.suggestOn);
+  $('s-suggest-remember').classList.toggle('on', g.remember !== false);
+  $('s-suggest-remember').hidden = !settings.suggestOn;
+  $('s-suggest-forget').hidden = !settings.suggestOn || !g.past;
+}
+$('s-suggest').addEventListener('click', async () => {
+  const s = await tv.setSuggest({ on: !$('s-suggest').classList.contains('on') });
+  if (s) renderSuggestSettings(s.suggest);
+});
+$('s-suggest-remember').addEventListener('click', async () => {
+  const s = await tv.setSuggest({ remember: !$('s-suggest-remember').classList.contains('on') });
+  if (s) renderSuggestSettings(s.suggest);
+});
+$('s-suggest-forget').addEventListener('click', async () => {
+  const s = await tv.setSuggest({ forget: true });
+  if (!s) return;
+  renderSuggestSettings(s.suggest);
+  $('s-suggest-remember').focus();
+  toast('Earlier searches forgotten');
 });
 $('s-kb-confirm').addEventListener('click', async () => {
   const s = await tv.setKbConfirm(!$('s-kb-confirm').classList.contains('on'));

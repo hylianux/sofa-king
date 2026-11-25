@@ -45,7 +45,7 @@ window.tv.onNotice((text) => {
 // The website keeps keyboard focus while this is up, so keys here are "selected" with a
 // class rather than real focus, and the app forwards controller presses to us.
 
-const kb = { buffer: '', field: null, confirm: true };
+const kb = { buffer: '', field: null, confirm: true, suggest: true, timer: 0, seq: 0 };
 
 // The keys themselves (and Shift, caps lock, "are you sure?"): see keyboard.js.
 const keys = window.TVKeyboard.create({
@@ -54,12 +54,41 @@ const keys = window.TVKeyboard.create({
   onType: (t) => type(t),
   onErase: () => erase(),
   onNext: () => window.tv.kbKey('Tab'),
-  onSubmit: () => { window.tvSound('close'); window.tv.kbClose(true); },
+  onSubmit: () => {
+    window.tvSound('close');
+    if (kb.field && kb.field.kind === 'search' && kb.buffer.trim()) window.tv.suggestRemember(kb.buffer, 'web');
+    window.tv.kbClose(true);
+  },
+  onPick: (item) => replaceWith(item.value),
   onCancel: () => { window.tvSound('close'); window.tv.kbClose(false); },
   confirm: () => kb.confirm,
   buttonName: (a) => window.tvButtons.buttonFor(a),
   describe: () => (kb.field && kb.field.kind === 'password' ? '•'.repeat(kb.buffer.length) : kb.buffer),
 });
+
+// Suggestions (not for passwords), after a short pause in typing. The app answers for the field
+// that's focused on the website: search boxes get titles and earlier searches too.
+const suggesting = () => kb.suggest && !(kb.field && kb.field.kind === 'password');
+function suggestSoon() {
+  if (!suggesting()) return;
+  clearTimeout(kb.timer);
+  kb.timer = setTimeout(async () => {
+    const seq = ++kb.seq;
+    const list = await window.tv.suggest(kb.buffer, 'web');
+    if (seq === kb.seq && !$('kb').hidden) keys.suggestions(list);
+  }, 250);
+}
+
+// A suggestion picked: delete back to where it differs from what's typed, then type the rest.
+function replaceWith(value) {
+  let same = 0;
+  while (same < kb.buffer.length && same < value.length && kb.buffer[same] === value[same]) same++;
+  for (let i = kb.buffer.length; i > same; i--) window.tv.kbKey('Backspace');
+  const rest = value.slice(same);
+  kb.buffer = value;
+  if (rest) window.tv.kbType(rest);
+  showBuffer();
+}
 
 function showBuffer() {
   const secret = kb.field && kb.field.kind === 'password';
@@ -68,6 +97,7 @@ function showBuffer() {
   $('kb-preview').classList.toggle('secret', secret);
   const p = $('kb-preview');
   p.scrollLeft = p.scrollWidth;
+  suggestSoon();
 }
 
 function type(text) {
@@ -94,8 +124,10 @@ function showKeyboard(state) {
   $('menu').hidden = true;
   $('kb').hidden = false;
   kb.confirm = state.kbConfirm !== false;
+  kb.suggest = state.suggest !== false;
+  kb.field = field || { label: 'Text', kind: 'text' };
+  keys.reset({ suggest: suggesting() });
   setField(field);
-  keys.reset();
   $('kb-phone').hidden = !phone;
   // The QR code is an SVG the app generated itself from the remote's link.
   if (phone) $('kb-qr').innerHTML = phone.qr;
@@ -112,7 +144,14 @@ window.tv.onKbPad((action) => {
 // L2 / R2 held or let go (on the website's page, sent on by the app): Shift and caps lock.
 window.tv.onKbHold((action, down) => keys.hold(action, down));
 
-window.tv.onKbField((field) => setField(field));
+// Another field focused while the keyboard is up (Next, or the website moved on by itself).
+window.tv.onKbField((field) => {
+  const was = suggesting();
+  kb.field = field || { label: 'Text', kind: 'text' };
+  if (was !== suggesting()) keys.reset({ suggest: suggesting() });
+  else keys.suggestions([]);
+  setField(field);
+});
 
 window.tv.onPhoneConnected(() => {
   clearTimeout(kb.troubleTimer);

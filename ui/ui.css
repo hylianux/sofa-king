@@ -127,6 +127,26 @@ button:focus { outline: none; }
 .tvkb .kb-q { margin: 0; font-size: 1.4rem; font-weight: 700; }
 .tvkb .kb-dialog-btns { display: flex; gap: 1rem; justify-content: center; }
 .tvkb .kb-dialog-btns .k { flex: none; width: 13rem; }
+/* The two answers: the chosen one lit up, bigger and ringed; the other faded back. */
+.tvkb .kb-dialog-btns .k.choice { background: var(--surface-2); color: var(--text); opacity: 0.5; transform: none; }
+.tvkb .kb-dialog-btns .k.choice.sel {
+  background: var(--focus); color: var(--on-focus); opacity: 1; transform: scale(1.1);
+  box-shadow: 0 0 0 3px var(--bg, #111), 0 0 0 6px var(--focus);
+}
+.tvkb .kb-dialog-how { margin: 0; font-size: 0.85rem; color: var(--muted, #aab); }
+
+/* Suggestions: a row above the keys (it keeps its height when empty, so the keys stay put). Long
+   ones shrink with "…" so every chip stays on screen. Earlier searches are marked with a clock. */
+.tvkb .kb-sugg { min-height: 3.1rem; margin-bottom: 0.25rem; }
+.tvkb .k.sugg {
+  flex: 0 1 auto; min-width: 0; max-width: 22rem; padding: 0 1.1rem; justify-items: start;
+  background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--ink), 0.18); font-size: 1.05rem; font-weight: 600;
+  animation: tv-fade var(--tv-in) var(--tv-ease);
+}
+.tvkb .k.sugg .face { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tvkb .k.sugg.past .face::before { content: "↺ "; opacity: 0.6; }
+.tvkb .k.sugg.title { font-style: italic; }
+.tvkb .k.sugg.sel { background: var(--focus); color: var(--on-focus); box-shadow: none; transform: scale(1.05); }
 
 /* The line above the keys explaining L2 / R2. */
 .tvkb .kb-help { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--muted, #aab); text-align: center; }

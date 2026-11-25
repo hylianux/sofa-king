@@ -261,9 +261,9 @@ const PAGE = `<!doctype html>
     },
     lastfm: {
       title: 'Add your Last.fm key', name: 'Last.fm', link: 'https://www.last.fm/api/account/create', linkText: 'Get a free Last.fm key ↗',
-      how: '1. Tap the link below and sign in to Last.fm (or make a free account). 2. Fill in the form: only <b>Application name</b> is needed (say, <b>SOFA King</b>). 3. Submit, copy the <b>API key</b> (not the shared secret), come back here, paste it and tap Save.',
-      done: 'Saved. Artist pages now use Last.fm for related artists.', placeholder: 'Paste your Last.fm API key',
-      notKey: 'That doesn\\'t look like a Last.fm key. Copy the API key: 32 letters and numbers.',
+      how: '1. Tap the link below and sign in to Last.fm (or make a free account). 2. Fill in the form: only <b>Application name</b> is needed (say, <b>SOFA King</b>). 3. Submit. The next page shows your <b>API key</b> and <b>shared secret</b>, and Last.fm <b>only ever shows the secret on that page</b>, so keep it open. 4. Copy the API key, come back here and paste it (it saves by itself), then do the same with the shared secret (it\\'s needed for scrobbling). Either order works. <br><br>Already have a key but lost its secret? Make a new key the same way: the old one just stops being used.',
+      done: 'Saved.', placeholder: 'Paste your Last.fm API key or shared secret',
+      notKey: 'That doesn\\'t look like a Last.fm key or secret: 32 letters and numbers.',
     },
     live: {
       title: 'Add a live TV channel list', name: 'your channel list', link: 'https://github.com/kineticman/FastChannels', linkText: 'What\\'s FastChannels? ↗',
@@ -347,10 +347,12 @@ const PAGE = `<!doctype html>
     setStatus('key-status', 'Checking with ' + c.name + '…');
     try {
       const r = await api('/api/setkey', { key, kind: keyFor });
-      if (r.ok) { setStatus('key-status', c.done, 'good'); $('key').value = ''; }
+      if (r.ok) { setStatus('key-status', r.message || c.done, 'good'); $('key').value = ''; }
       else setStatus('key-status', {
         'not-a-key': c.notKey,
         'bad-key': c.name + ' didn\\'t accept that key. Check you copied all of it.',
+        'key-first': 'That isn\\'t a key Last.fm knows. If it\\'s the shared secret, paste the API key first, then the secret. Otherwise check you copied all of it.',
+        'bad-either': 'Last.fm didn\\'t accept that as a key, or as the shared secret for the key you have. Check you copied all of it.',
         'bad-client': 'Trakt didn\\'t recognise that Client ID. Check you copied both codes.',
         'quota': 'That key has used up this month\\'s lookups.',
         'not-a-url': c.notKey,

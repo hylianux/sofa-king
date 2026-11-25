@@ -47,6 +47,12 @@ function watchLink({ videoId, playlistId, search } = {}, host = 'www.youtube.com
   if (search) return host === 'music.youtube.com' ? `https://${host}/search?q=${encodeURIComponent(search)}` : `https://${host}/results?search_query=${encodeURIComponent(search)}`;
   return `https://${host}`;
 }
+// For VacuumTube, which hands the address to YouTube's TV page: that page understands video links
+// and /search?q=, but ignores the website's /results?search_query= (it just stays on Home).
+function vacuumTubeLink(target = {}) {
+  if (!VIDEO_ID.test(target.videoId || '') && target.search) return `https://www.youtube.com/search?q=${encodeURIComponent(target.search)}`;
+  return watchLink(target);
+}
 // A YouTube address (a trailer on another site, say) -> what it points at.
 function parseLink(url) {
   try {
@@ -306,4 +312,4 @@ function pageScript(settings) {
 })();`;
 }
 
-module.exports = { createYouTube, pageScript, tvLink, watchLink, parseLink, TV_URL, TV_UA, SB_CATEGORIES };
+module.exports = { createYouTube, pageScript, tvLink, watchLink, vacuumTubeLink, parseLink, TV_URL, TV_UA, SB_CATEGORIES };
