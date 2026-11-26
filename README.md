@@ -68,7 +68,7 @@ The code's layout, the tests and how releases are made are in [For developers](d
 
 Yes, this was made with AI, but as it's free, I don't see how it benefits me to go to the extra trouble of coding everything by hand. The added marketing of organic gluten-free zero-carb no saturated fats sugar-free app might help it sell, but nobody's making any money here anyway, so let's just enjoy a product that WORKS, and I can produce rapid updates for.
 
-If the fact that it was created with AI still bothers you, let me close with: This app was **created** out of spite for "TV OS's", **coded** out of spite for the anti-ai group, and I hope all users **use** it out of spite for both. Enjoy!
+If the fact that it was created with AI still bothers you, let me close with: This app was <ins>**created**</ins> out of spite for "TV OS's", <ins>**coded**</ins> out of spite for the anti-ai group, and I hope all users <ins>**use**</ins> it out of spite for both. Enjoy!
 
 ## Licence
 
