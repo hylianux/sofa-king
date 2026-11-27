@@ -195,22 +195,52 @@ async function enableGnomeKeyboard() {
 
 // ------------------------------------------------------------ allow
 
+// What pkexec's failure means. 126: the person closed the prompt. 127: no prompt could be shown
+// (no "authentication agent" running, as in Steam's Game Mode and other TV-style sessions), or
+// the password was refused.
+function pkexecError(r, command) {
+  const said = (r.stderr || r.stdout).trim();
+  if (r.code === 126) return { error: 'cancelled', command };
+  if (/no authentication agent/i.test(said)) return { error: 'no-agent', command, detail: said.slice(0, 300) };
+  if (r.code === 127) return { error: 'not-allowed', command, detail: said.slice(0, 300) };
+  return { error: 'failed', detail: said.slice(0, 300), command };
+}
+
 async function allow(fw, network, ports) {
   const p = plan(fw, network, ports);
   if (!p) return { error: 'unsupported' };
   const pkexec = findBin('pkexec');
-  if (!pkexec) return { error: 'no-pkexec', command: p.display };
+  if (!pkexec) return { error: 'no-agent', command: p.display };
 
   const restoreKeyboard = await enableGnomeKeyboard();
   try {
     const r = await run(pkexec, p.exec, 5 * 60 * 1000);
     if (r.code === 0) return { ok: true };
-    // 126: the person closed the prompt; 127: wrong password or no password agent running.
-    if (r.code === 126 || r.code === 127) return { error: 'cancelled', command: p.display };
-    return { error: 'failed', detail: (r.stderr || r.stdout).trim().slice(0, 300), command: p.display };
+    return pkexecError(r, p.display);
   } finally {
     await restoreKeyboard();
   }
 }
 
-module.exports = { detect, plan, allow, networkOf, homeRange, inNetwork, ufwAllows, keyboardTips };
+// When there's no system password prompt: the password typed on our own keyboard goes to sudo
+// once, through its input, and nowhere else (not saved, not logged, not in any command line).
+function allowWithPassword(fw, network, ports, password) {
+  const p = plan(fw, network, ports);
+  if (!p) return Promise.resolve({ error: 'unsupported' });
+  const sudo = findBin('sudo');
+  if (!sudo) return Promise.resolve({ error: 'no-sudo', command: p.display });
+  return new Promise((resolve) => {
+    // -S: read the password from input; -k: don't reuse an earlier sign-in; -p '': no prompt text.
+    const child = execFile(sudo, ['-S', '-k', '-p', '', '--', ...p.exec], { timeout: 60 * 1000 }, (err, stdout, stderr) => {
+      const said = String(stderr || stdout || '').trim();
+      if (!err) return resolve({ ok: true });
+      if (/incorrect password|sorry, try again|password attempts?/i.test(said)) return resolve({ error: 'wrong-password', command: p.display });
+      if (/not in the sudoers|not allowed to/i.test(said)) return resolve({ error: 'not-sudoer', command: p.display });
+      resolve({ error: 'failed', detail: said.slice(0, 300), command: p.display });
+    });
+    child.stdin.on('error', () => { /* sudo may finish before reading */ });
+    child.stdin.end(`${password}\n`);
+  });
+}
+
+module.exports = { detect, plan, allow, allowWithPassword, networkOf, homeRange, inNetwork, ufwAllows, keyboardTips };

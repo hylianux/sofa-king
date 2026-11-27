@@ -121,10 +121,12 @@ async function renderHome() {
   services = await tv.services(); // still needed: which "Watch on" buttons a title gets
   $('open-search').addEventListener('click', openSearch);
   $('open-settings').addEventListener('click', openSettings);
-  $('results-setup').addEventListener('click', openSettings);
-  $('home-setup').addEventListener('click', openSettings);
-  $('genres-setup').addEventListener('click', openSettings);
-  $('lib-setup').addEventListener('click', () => openSettings({ tab: 'jellyfin' }));
+  // "Set up …" goes straight to the setting that does it, not wherever Settings was left.
+  const setUpSearch = () => openSettings({ focus: 's-phone' });
+  $('results-setup').addEventListener('click', setUpSearch);
+  $('home-setup').addEventListener('click', setUpSearch);
+  $('genres-setup').addEventListener('click', setUpSearch);
+  $('lib-setup').addEventListener('click', () => openSettings({ focus: 'jf-add' }));
   $('open-search').focus();
   await loadRows();
 }
@@ -1308,7 +1310,10 @@ async function saveKey(key) {
 async function openSettings(opts) {
   const overService = Boolean(opts && opts.overService === true);
   if (screen !== 'settings') go('settings');
-  const asked = opts && typeof opts.tab === 'string' ? opts.tab : '';
+  // A particular setting to go straight to (e.g. "Set up search" → the TMDB key's buttons).
+  const exact = opts && typeof opts.focus === 'string' ? $(opts.focus) : null;
+  const exactTab = exact && exact.closest('.s-panel') ? exact.closest('.s-panel').dataset.tab : '';
+  const asked = exactTab || (opts && typeof opts.tab === 'string' ? opts.tab : '');
   if (asked) setSettingsTab(asked, { focus: false });
   settings.overService = overService;
   $('s-eyebrow').textContent = overService && opts.name ? `Press B to go back to ${opts.name}` : 'SOFA King';
@@ -1316,7 +1321,10 @@ async function openSettings(opts) {
   $('s-phone-panel').hidden = true;
   closeJfPanel();
   // Back where you were last time (unless something asked for a particular tab).
-  if (asked || !restoreSettingsPlace()) { if (!asked) setSettingsTab('general', { focus: false }); focusSettingsTab(); }
+  if (exact) {
+    if (exact.closest('.s-group')) showSettingsGroup(exact.closest('.s-group'));
+    exact.focus();
+  } else if (asked || !restoreSettingsPlace()) { if (!asked) setSettingsTab('general', { focus: false }); focusSettingsTab(); }
   refreshApps();
   renderServers((await tv.jfList()).ok || []);
   await refreshSettings();
@@ -1421,28 +1429,53 @@ async function showTrouble() {
   $('s-phone-panel').classList.add('compact');
 }
 
+function firewallAllowed(r) {
+  if (r.open === false) {
+    note('The firewall said yes, but it still looks closed. Try the command below in a terminal.');
+    return;
+  }
+  note('Done. Scan the code again on your phone.', true);
+  $('s-allow').hidden = true;
+  $('s-trouble-text').textContent = 'The remote is allowed on your home network now.';
+  $('s-trouble-keys').textContent = '';
+  $('s-trouble-cmd').hidden = true;
+  $('s-phone').focus();
+  // If the phone still can't get through, say what else to check.
+  clearTimeout(phoneTimer);
+  phoneTimer = setTimeout(showTrouble, 20000);
+}
+
+const FIREWALL_ERRORS = {
+  cancelled: 'The password prompt was closed, so nothing changed.',
+  'not-allowed': 'The system didn\'t accept that, so nothing changed. Check the password, or run the command below in a terminal.',
+  'wrong-password': 'That password wasn\'t accepted, so nothing changed.',
+  'not-sudoer': 'This account isn\'t allowed to change system settings. Ask whoever runs this computer to run the command below.',
+  'no-sudo': 'This system can\'t take a password from here. Run the command below in a terminal instead.',
+};
+
+// No system password prompt on this screen (Steam's Game Mode and other TV-style sessions have
+// none): type it on our own keyboard instead.
+async function firewallTypedPassword() {
+  const password = await askFor({
+    eyebrow: 'Allow the phone remote',
+    label: 'Your computer\'s password',
+    hint: 'There\'s no system password prompt on this screen, so type it here. It\'s used once to change the firewall, and never saved.',
+    secret: true,
+    phone: false,
+  });
+  if (!password) { note('Nothing changed.'); return; }
+  note('Changing the firewall…');
+  const r = await tv.firewallPassword(password);
+  if (r.ok) firewallAllowed(r);
+  else note(FIREWALL_ERRORS[r.error] || `That didn't work${r.detail ? `: ${r.detail}` : '.'} You can run the command below in a terminal instead.`);
+}
+
 $('s-allow').addEventListener('click', async () => {
   note('Waiting for the password prompt…');
   const r = await tv.firewallAllow();
-  if (r.ok && r.open === false) {
-    note('The firewall said yes, but it still looks closed. Try the command below in a terminal.');
-  } else if (r.ok) {
-    note('Done. Scan the code again on your phone.', true);
-    $('s-allow').hidden = true;
-    $('s-trouble-text').textContent = 'The remote is allowed on your home network now.';
-    $('s-trouble-keys').textContent = '';
-    $('s-trouble-cmd').hidden = true;
-    $('s-phone').focus();
-    // If the phone still can't get through, say what else to check.
-    clearTimeout(phoneTimer);
-    phoneTimer = setTimeout(showTrouble, 20000);
-  } else if (r.error === 'cancelled') {
-    note('The password prompt was closed, so nothing changed.');
-  } else if (r.error === 'no-pkexec') {
-    note('This system can\'t show a password prompt. Run the command below in a terminal instead.');
-  } else {
-    note(`That didn't work${r.detail ? `: ${r.detail}` : '.'} You can run the command below in a terminal instead.`);
-  }
+  if (r.ok) firewallAllowed(r);
+  else if (r.error === 'no-agent') firewallTypedPassword();
+  else note(FIREWALL_ERRORS[r.error] || `That didn't work${r.detail ? `: ${r.detail}` : '.'} You can run the command below in a terminal instead.`);
 });
 
 tv.onPhoneConnected(() => {
@@ -1554,7 +1587,7 @@ tv.onTypingDone(() => { if (screen === 'ask') askKeys.handle('menu'); });
 
 // suggest: what to suggest while typing ('words', or 'radio' for earlier station searches too);
 // nothing for addresses, names and passwords.
-function askFor({ label, eyebrow = '', hint = '', value = '', secret = false, placeholder = '', suggest = '' }) {
+function askFor({ label, eyebrow = '', hint = '', value = '', secret = false, placeholder = '', suggest = '', phone = true }) {
   if (ask.resolve) finishAsk(null);
   go('ask');
   ask.secret = secret;
@@ -1566,7 +1599,8 @@ function askFor({ label, eyebrow = '', hint = '', value = '', secret = false, pl
   askKeys.reset({ suggest: Boolean(ask.suggest) });
   setAsk(value);
   tv.setTyping(true);
-  askPhone(label, secret);
+  if (phone) askPhone(label, secret);
+  else { ask.phoneSeq++; $('ask-phone').hidden = true; } // (no phone code: e.g. it's the phone that can't connect)
   return new Promise((resolve) => { ask.resolve = resolve; });
 }
 

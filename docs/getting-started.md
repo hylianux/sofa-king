@@ -4,7 +4,7 @@
 
 ## Set up search (a free TMDB key)
 
-Search, title pages and the suggestion rows use a free key from TMDB (themoviedb.org). Open **Settings** (the gear at the top right) and pick one:
+Search, title pages and the suggestion rows use a free key from TMDB (themoviedb.org). Choose **Set up search** on Home (it takes you straight to the right place in Settings), or open **Settings** (the gear at the top right) → General → Search, and pick one:
 
 - **Paste it from my phone:** scan the code and paste your key on the page that opens. It has a link to TMDB's API settings, so you can copy the key there first.
 - **Find it on themoviedb.org:** opens TMDB's API settings in the app. Sign in, copy the **API Read Access Token** (the long one), then press Start and pick *Back to settings*. The copied key is picked up for you. If copying doesn't work, *Use the key on this page* in the same menu reads it off the page.

@@ -1642,7 +1642,7 @@ ipcMain.handle('ui:firewall-allow', async (event) => {
   win.minimize();
   try {
     const r = await firewall.allow(fw, network, ports);
-    console.log(`[firewall] allow: ${r.ok ? 'done' : r.error}${r.detail ? ` (${r.detail})` : ''}`);
+    console.log(`[firewall] allow: ${r.ok ? 'done' : r.error}${r.detail ? ` (pkexec said: ${r.detail})` : ''}`);
     if (!r.ok) return r;
     // Check it took.
     const after = await firewallPlan();
@@ -1652,6 +1652,17 @@ ipcMain.handle('ui:firewall-allow', async (event) => {
     if (wasKiosk) win.setKiosk(true);
     home.webContents.focus();
   }
+});
+// The same, with the password typed on the app's own keyboard (for when there's no system prompt).
+ipcMain.handle('ui:firewall-password', async (event, password) => {
+  if (!fromHome(event) || typeof password !== 'string' || !password || password.length > 1024) return { error: 'failed' };
+  const { fw, network, ports } = await firewallPlan();
+  if (!fw || !network) return { error: 'unsupported' };
+  const r = await firewall.allowWithPassword(fw, network, ports, password);
+  console.log(`[firewall] allow with typed password: ${r.ok ? 'done' : r.error}`);
+  if (!r.ok) return r;
+  const after = await firewallPlan();
+  return { ok: true, open: after.fw ? after.fw.open : null };
 });
 ipcMain.on('ui:phone-mode', (event, mode, keyFor = 'tmdb') => {
   if (!fromHome(event)) return;

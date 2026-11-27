@@ -10,6 +10,14 @@ const OUT = path.join(__dirname, 'out', 'trouble.txt'); const log = []; const sa
 // Something else already has the usual port: the remote should take the next one, which the
 // firewall rule it offers also covers.
 const blocker = require('http').createServer().listen(8765, '0.0.0.0');
+// No system password prompt (as in Steam's Game Mode): pkexec can't ask, so the app asks itself.
+// (Stand-ins, so nothing on this computer changes.)
+const firewall = require(path.join(__dirname, '..', '..', 'firewall.js'));
+let typed = null;
+firewall.allow = async () => ({ error: 'no-agent', command: 'sudo ufw …' });
+firewall.allowWithPassword = async (fw, network, ports, password) => { typed = { network, ports, password }; return password === 'hunter2' ? { ok: true } : { error: 'wrong-password' }; };
+const realDetect = firewall.detect;
+firewall.detect = async (o) => ({ ...(await realDetect(o)), ...(typed && typed.password === 'hunter2' ? { open: true } : {}) });
 require(path.join(__dirname, '..', '..', 'main.js'));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 app.whenReady().then(async () => {
@@ -36,6 +44,20 @@ app.whenReady().then(async () => {
   await key('Up'); say('Up in panel stays:', await where());
   await key('Left'); const back = await where(); say('after Left:', back, back === 's-phone' ? 'PASS' : 'FAIL');
   fs.writeFileSync(path.join(__dirname, 'out', 'trouble.png'), (await wc.capturePage()).toPNG());
+
+  // Allow, with no system prompt: our own typing screen asks for the password.
+  await key('Right', 3); say('before A:', await where()); wc.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' }); wc.sendInputEvent({ type: 'char', keyCode: '\r' }); wc.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' }); // (A, as the app presses it)
+  for (let i = 0; i < 10 && (await js('screen')) !== 'ask'; i++) await wait(500);
+  say('note now:', await js("document.getElementById('s-note').textContent"));
+  say('no prompt -> typing screen:', await js('screen'), '|', await js("document.getElementById('ask-label').textContent"), '| hidden as dots:', await js('ask.secret'));
+  fs.writeFileSync(path.join(__dirname, 'out', 'trouble-ask.png'), (await wc.capturePage()).toPNG());
+  await js("finishAsk('wrong'); 0"); await wait(800);
+  say('wrong password:', await js('screen'), '|', await js("document.getElementById('s-note').textContent"));
+  await js("document.getElementById('s-allow').click(); 0"); await wait(1500);
+  await js("finishAsk('hunter2'); 0"); await wait(800);
+  say('right password:', await js("document.getElementById('s-note').textContent"), '| focus', await where(), '| sent', JSON.stringify(typed));
+  const logText = fs.readdirSync(path.join(UD, 'logs')).map((f) => fs.readFileSync(path.join(UD, 'logs', f), 'utf8')).join('');
+  say('password in the log:', /hunter2/.test(logText) ? 'FAIL (it is)' : 'PASS (no)', '|', (logText.match(/\[firewall\].*/g) || []).join(' / '));
   blocker.close();
   app.exit(0);
 });

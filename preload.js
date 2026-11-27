@@ -225,6 +225,7 @@ if (location.protocol === 'file:') {
     onJfChanged: listen('jf:changed'),
     firewall: () => ipcRenderer.invoke('ui:firewall'),
     firewallAllow: () => ipcRenderer.invoke('ui:firewall-allow'),
+    firewallPassword: (password) => ipcRenderer.invoke('ui:firewall-password', password),
 
     // menu and keyboard (overlay page)
     onOverlayState: listen('overlay-state'),
