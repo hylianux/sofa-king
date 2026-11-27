@@ -55,6 +55,9 @@ function readBody(req, limit = 16 * 1024) {
   });
 }
 
+// How many ports in a row the remote may use, starting at the one in the settings.
+const PORT_SPAN = 10;
+
 function createPhoneRemote({ getPort, handlers }) {
   const token = crypto.randomBytes(16).toString('base64url');
   const tokenBuf = Buffer.from(token);
@@ -142,7 +145,13 @@ function createPhoneRemote({ getPort, handlers }) {
         console.log(`[phone] ${req.method} ${req.url.split('?')[0]} from ${req.socket.remoteAddress}`);
         handle(req, res);
       });
-      try { await listen(getPort()); } catch { await listen(0); } // port taken: let the system pick one
+      // The usual port, else the next few after it (all covered by the firewall rule the app
+      // offers to add); only when all of those are taken, any port the system picks.
+      let listening = false;
+      for (let i = 0; i < PORT_SPAN && !listening; i++) {
+        try { await listen(getPort() + i); listening = true; } catch { /* taken: try the next */ }
+      }
+      if (!listening) await listen(0);
       const port = server.address().port;
       const url = `http://${addresses[0].address}:${port}/?t=${token}`;
       const qr = await QRCode.toString(url, {
@@ -150,7 +159,8 @@ function createPhoneRemote({ getPort, handlers }) {
       });
       console.log(`[phone] remote at http://${addresses[0].address}:${port}/ (${addresses[0].name}); ` +
         `other addresses: ${addresses.slice(1).map((a) => `${a.address} (${a.name})`).join(', ') || 'none'}`);
-      info = { url, qr, port, address: `${addresses[0].address}:${port}`, network: addresses[0].name, cidr: addresses[0].cidr };
+      info = { url, qr, port, address: `${addresses[0].address}:${port}`, network: addresses[0].name, cidr: addresses[0].cidr,
+        ports: port >= getPort() && port < getPort() + PORT_SPAN ? { from: getPort(), to: getPort() + PORT_SPAN - 1 } : { from: port, to: port } };
       return info;
     })();
     try { return await starting; } finally { starting = null; }

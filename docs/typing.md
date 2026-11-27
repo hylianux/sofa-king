@@ -19,5 +19,6 @@ Your phone needs to be on the same Wi-Fi as the computer. The code only works on
 
 **If the phone page never loads,** Settings shows a *Phone not connecting?* panel after a few seconds:
 
-- **A firewall** may be blocking it. If your computer uses ufw or firewalld, **Allow on my home network** (press right to get to it, in the box beside the QR code) fixes it (it asks for your computer's password). The app uses port 8765.
-- Otherwise, check your phone isn't on a guest network or a VPN.
+- **A firewall** may be blocking it. If your computer uses ufw or firewalld, **Allow on my home network** (press right to get to it, in the box beside the QR code) fixes it (it asks for your computer's password). It lets in your whole home network (for example every 192.168.x.x address), never the internet. The app uses port 8765, or one of the next few (up to 8774) if something else has 8765.
+- To do it yourself instead: `sudo ufw allow from 192.168.0.0/16 to any port 8765:8774 proto tcp` (use `10.0.0.0/8` if your addresses start with 10).
+- Otherwise, check your phone isn't on a guest network or a VPN, and that your router doesn't keep Wi-Fi devices apart ("AP isolation" or "client isolation").

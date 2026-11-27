@@ -1405,9 +1405,12 @@ async function showTrouble() {
   const f = await tv.firewall();
   if (!f || f.seen) return;
   const blocking = (f.kind === 'ufw' || f.kind === 'firewalld') && !f.open;
+  const elsewhere = 'Check your phone is on the same Wi-Fi as this PC (not a guest network), that any VPN on the phone is off, and that your router doesn\'t keep Wi-Fi devices apart (often called "AP isolation" or "client isolation").';
   $('s-trouble-text').textContent = blocking
     ? `This PC's firewall (${f.kind}) is probably blocking it. You can let the remote through for your home network (${f.network}) only, not the internet.`
-    : 'This PC\'s firewall doesn\'t look like the problem. Check your phone is on the same Wi-Fi as this PC (not a guest network) and that any VPN on the phone is off.';
+    : f.open
+      ? `This PC's firewall already lets the remote in from your home network. ${elsewhere}`
+      : `This PC's firewall doesn't look like the problem. ${elsewhere}`;
   $('s-allow').hidden = !(blocking && f.command);
   $('s-trouble-keys').textContent = blocking
     ? [f.command ? 'Press right to get to the button.' : '', 'This asks for your computer password in the system\'s own prompt.', ...f.tips.map((t) => KEY_TIPS[t])].filter(Boolean).join(' ')
@@ -1421,13 +1424,18 @@ async function showTrouble() {
 $('s-allow').addEventListener('click', async () => {
   note('Waiting for the password prompt…');
   const r = await tv.firewallAllow();
-  if (r.ok) {
+  if (r.ok && r.open === false) {
+    note('The firewall said yes, but it still looks closed. Try the command below in a terminal.');
+  } else if (r.ok) {
     note('Done. Scan the code again on your phone.', true);
     $('s-allow').hidden = true;
     $('s-trouble-text').textContent = 'The remote is allowed on your home network now.';
     $('s-trouble-keys').textContent = '';
     $('s-trouble-cmd').hidden = true;
     $('s-phone').focus();
+    // If the phone still can't get through, say what else to check.
+    clearTimeout(phoneTimer);
+    phoneTimer = setTimeout(showTrouble, 20000);
   } else if (r.error === 'cancelled') {
     note('The password prompt was closed, so nothing changed.');
   } else if (r.error === 'no-pkexec') {

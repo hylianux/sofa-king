@@ -45,42 +45,108 @@ function networkOf(cidr) {
   return `${[24, 16, 8, 0].map((s) => (net >>> s) & 255).join('.')}/${bits}`;
 }
 
-const SAFE_NET = /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/;
+const toInt = (ip) => ip.split('.').reduce((n, x) => ((n << 8) | Number(x)) >>> 0, 0);
+function inNetwork(ip, network) {
+  const [base, bits] = String(network).split('/');
+  if (!base || bits === undefined) return false;
+  const mask = Number(bits) === 0 ? 0 : (0xffffffff << (32 - Number(bits))) >>> 0;
+  return ((toInt(ip) & mask) >>> 0) === ((toInt(base) & mask) >>> 0);
+}
 
-async function detect(port) {
+// Which addresses count as "your home network". Not just this computer's own slice of it: mesh
+// Wi-Fi and some routers hand phones addresses from a different slice (this PC 192.168.4.x, the
+// phone 192.168.5.x), and a rule for the narrow slice would still block the phone. So the whole
+// private range the computer is in, which never includes the internet.
+const PRIVATE = ['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12'];
+function homeRange(cidr) {
+  const ip = String(cidr || '').split('/')[0];
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return null;
+  return PRIVATE.find((n) => inNetwork(ip, n)) || networkOf(cidr);
+}
+
+const SAFE_NET = /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/;
+const portText = (ports, sep) => (ports.from === ports.to ? String(ports.from) : `${ports.from}${sep}${ports.to}`);
+
+// Does ufw already let the remote in from the whole of network? Its own rules file can usually
+// be read without admin rights; when it can't, we don't know (null).
+function ufwAllows(network, port) {
+  if (!network) return null;
+  const [base, bits] = network.split('/');
+  let text;
+  try { text = fs.readFileSync('/etc/ufw/user.rules', 'utf8'); } catch { return null; }
+  for (const line of text.split('\n')) {
+    const m = /^-A ufw-user-input\b(.*)-j ACCEPT/.exec(line.trim());
+    if (!m) continue;
+    const rule = m[1];
+    if (/-p udp/.test(rule)) continue;
+    // --dport 8765, --dport 8765:8774, or --dports 80,8765:8774 (several); none means every port.
+    const spec = /--dports? (\S+)/.exec(rule);
+    const hit = !spec || spec[1].split(',').some((part) => {
+      const [a, b] = part.split(':').map(Number);
+      return port >= a && port <= (b || a);
+    });
+    if (!hit) continue;
+    const src = /-s (\S+)/.exec(rule);
+    if (src && !(src[1].includes('/') && Number(src[1].split('/')[1]) <= Number(bits) && inNetwork(base, src[1]))) continue;
+    return true;
+  }
+  return false;
+}
+
+// fw: { kind, bin, zone?, open } (open: true, false, or null when we can't tell).
+async function detect({ port, cidr, iface, ports }) {
+  const network = homeRange(cidr);
   const ufw = findBin('ufw');
   if (ufw) {
     let enabled = false;
     try { enabled = /^\s*ENABLED\s*=\s*yes/im.test(fs.readFileSync('/etc/ufw/ufw.conf', 'utf8')); } catch { /* unreadable */ }
-    if (enabled) return { kind: 'ufw', bin: ufw };
+    if (enabled) return { kind: 'ufw', bin: ufw, open: ufwAllows(network, port) };
   }
   const fwc = findBin('firewall-cmd');
   if (fwc) {
     const state = await run(fwc, ['--state']);
     if (state.code === 0 && /running/.test(state.stdout)) {
-      const q = await run(fwc, ['--query-port', `${port}/tcp`]);
-      return { kind: 'firewalld', bin: fwc, open: q.code === 0 && /yes/.test(q.stdout) };
+      // The rule has to go in the zone this network connection is in, which isn't always the
+      // default one.
+      let zone = iface ? (await run(fwc, [`--get-zone-of-interface=${iface}`])).stdout.trim() : '';
+      if (!/^[\w-]+$/.test(zone)) zone = (await run(fwc, ['--get-default-zone'])).stdout.trim();
+      if (!/^[\w-]+$/.test(zone)) zone = '';
+      const z = zone ? [`--zone=${zone}`] : [];
+      const q = await run(fwc, [...z, '--query-port', `${port}/tcp`]);
+      let open = q.code === 0 && /yes/.test(q.stdout);
+      if (!open && network && ports) {
+        const r = await run(fwc, [...z, `--query-rich-rule=${richRule(network, ports)}`]);
+        open = r.code === 0 && /yes/.test(r.stdout);
+      }
+      return { kind: 'firewalld', bin: fwc, zone, open };
     }
   }
   // Plain nftables/iptables rules can't be read without admin rights, so we can't tell.
-  return { kind: 'none' };
+  return { kind: 'none', open: null };
 }
 
+const richRule = (network, ports) =>
+  `rule family="ipv4" source address="${network}" port port="${portText(ports, '-')}" protocol="tcp" accept`;
+
 // The command a person could run themselves, and what we'll run through pkexec.
-function plan(fw, network, port) {
-  if (!SAFE_NET.test(network) || !Number.isInteger(port)) return null;
+// ports: { from, to }, every port the remote might use (it tries a few in turn).
+function plan(fw, network, ports) {
+  if (!SAFE_NET.test(network) || !Number.isInteger(ports.from) || !Number.isInteger(ports.to)) return null;
   if (fw.kind === 'ufw') {
-    const args = ['allow', 'from', network, 'to', 'any', 'port', String(port), 'proto', 'tcp', 'comment', COMMENT];
+    const args = ['allow', 'from', network, 'to', 'any', 'port', portText(ports, ':'), 'proto', 'tcp', 'comment', COMMENT];
     return {
-      display: `sudo ufw allow from ${network} to any port ${port} proto tcp comment '${COMMENT}'`,
+      display: `sudo ufw allow from ${network} to any port ${portText(ports, ':')} proto tcp comment '${COMMENT}'`,
       exec: [fw.bin, ...args],
     };
   }
   if (fw.kind === 'firewalld') {
-    const rule = `rule family="ipv4" source address="${network}" port port="${port}" protocol="tcp" accept`;
-    const script = `${fw.bin} --permanent --add-rich-rule='${rule}' && ${fw.bin} --reload`;
+    if (fw.zone && !/^[\w-]+$/.test(fw.zone)) return null;
+    const z = fw.zone ? ` --zone=${fw.zone}` : '';
+    const rule = richRule(network, ports);
+    // Now (no reload, which would drop other changes made only for now) and after a restart.
+    const script = `${fw.bin}${z} --add-rich-rule='${rule}' && ${fw.bin} --permanent${z} --add-rich-rule='${rule}'`;
     return {
-      display: `sudo firewall-cmd --permanent --add-rich-rule='${rule}' && sudo firewall-cmd --reload`,
+      display: `sudo firewall-cmd${z} --add-rich-rule='${rule}' && sudo firewall-cmd --permanent${z} --add-rich-rule='${rule}'`,
       exec: ['/bin/sh', '-c', script],
     };
   }
@@ -129,8 +195,8 @@ async function enableGnomeKeyboard() {
 
 // ------------------------------------------------------------ allow
 
-async function allow(fw, network, port) {
-  const p = plan(fw, network, port);
+async function allow(fw, network, ports) {
+  const p = plan(fw, network, ports);
   if (!p) return { error: 'unsupported' };
   const pkexec = findBin('pkexec');
   if (!pkexec) return { error: 'no-pkexec', command: p.display };
@@ -147,4 +213,4 @@ async function allow(fw, network, port) {
   }
 }
 
-module.exports = { detect, plan, allow, networkOf, keyboardTips };
+module.exports = { detect, plan, allow, networkOf, homeRange, inNetwork, ufwAllows, keyboardTips };

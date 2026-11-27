@@ -1610,10 +1610,11 @@ ipcMain.handle('ui:phone', async (event, mode, keyFor = 'tmdb') => {
 async function firewallPlan() {
   const info = await phone.start().catch(() => null);
   if (!info || info.error) return { kind: 'unknown' };
-  const fw = await firewall.detect(info.port);
-  const network = firewall.networkOf(info.cidr);
-  const plan = network ? firewall.plan(fw, network, info.port) : null;
-  return { fw, network, port: info.port, plan };
+  const fw = await firewall.detect({ port: info.port, cidr: info.cidr, iface: info.network, ports: info.ports });
+  const network = firewall.homeRange(info.cidr);
+  const plan = network ? firewall.plan(fw, network, info.ports) : null;
+  console.log(`[firewall] ${fw.kind}${fw.zone ? ` (zone ${fw.zone})` : ''}: port ${info.port} ${fw.open === null ? 'unknown' : fw.open ? 'open' : 'closed'} for ${network}`);
+  return { fw, network, port: info.port, ports: info.ports, plan };
 }
 
 ipcMain.handle('ui:firewall', async (event) => {
@@ -1632,7 +1633,7 @@ ipcMain.handle('ui:firewall', async (event) => {
 
 ipcMain.handle('ui:firewall-allow', async (event) => {
   if (!fromHome(event)) return { error: 'failed' };
-  const { fw, network, port } = await firewallPlan();
+  const { fw, network, ports } = await firewallPlan();
   if (!fw || !network) return { error: 'unsupported' };
 
   // Get our full-screen window out of the way so the system's password prompt is visible.
@@ -1640,7 +1641,12 @@ ipcMain.handle('ui:firewall-allow', async (event) => {
   if (wasKiosk) win.setKiosk(false);
   win.minimize();
   try {
-    return await firewall.allow(fw, network, port);
+    const r = await firewall.allow(fw, network, ports);
+    console.log(`[firewall] allow: ${r.ok ? 'done' : r.error}${r.detail ? ` (${r.detail})` : ''}`);
+    if (!r.ok) return r;
+    // Check it took.
+    const after = await firewallPlan();
+    return { ok: true, open: after.fw ? after.fw.open : null };
   } finally {
     win.restore();
     if (wasKiosk) win.setKiosk(true);
