@@ -1410,7 +1410,7 @@ async function showTrouble() {
     : 'This PC\'s firewall doesn\'t look like the problem. Check your phone is on the same Wi-Fi as this PC (not a guest network) and that any VPN on the phone is off.';
   $('s-allow').hidden = !(blocking && f.command);
   $('s-trouble-keys').textContent = blocking
-    ? ['This asks for your computer password in the system\'s own prompt.', ...f.tips.map((t) => KEY_TIPS[t])].join(' ')
+    ? [f.command ? 'Press right to get to the button.' : '', 'This asks for your computer password in the system\'s own prompt.', ...f.tips.map((t) => KEY_TIPS[t])].filter(Boolean).join(' ')
     : '';
   $('s-trouble-cmd').hidden = !(blocking && f.command);
   $('s-trouble-cmd').textContent = f.command ? `Or run it yourself: ${f.command}` : '';

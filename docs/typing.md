@@ -19,5 +19,5 @@ Your phone needs to be on the same Wi-Fi as the computer. The code only works on
 
 **If the phone page never loads,** Settings shows a *Phone not connecting?* panel after a few seconds:
 
-- **A firewall** may be blocking it. If your computer uses ufw or firewalld, **Allow on my home network** fixes it (it asks for your computer's password). The app uses port 8765.
+- **A firewall** may be blocking it. If your computer uses ufw or firewalld, **Allow on my home network** (press right to get to it, in the box beside the QR code) fixes it (it asks for your computer's password). The app uses port 8765.
 - Otherwise, check your phone isn't on a guest network or a VPN.

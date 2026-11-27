@@ -55,6 +55,18 @@
     // the side) only keeps down inside: right goes on to what it opens, up from the top to the tabs.
     let zone = dir === 'left' ? null : cur.closest('[data-zone]');
     if (zone && zone.dataset.zone === 'column' && dir !== 'down') zone = null;
+    // A panel beside a section (data-beside, e.g. the phone's QR code with its "Allow" button):
+    // up, down and right stay in it, and left goes back to where you came in from.
+    const side = cur.closest('[data-beside]');
+    if (side) {
+      if (dir === 'left' && side.navFrom && all.includes(side.navFrom)) {
+        side.navFrom.focus();
+        side.navFrom.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        sound('move');
+        return;
+      }
+      if (dir !== 'left') zone = side;
+    }
 
     // Up and down look inside the scrolling list you're in first (rows of cards, a settings tab,
     // a grid), even at things scrolled out of sight, before anything outside it. Otherwise the
@@ -100,6 +112,15 @@
       return best;
     };
     let best = (scroller && pick(scroller)) || pick(null);
+    // Right at the edge of a section goes into a panel showing beside it, if there is one.
+    if (!best && dir === 'right' && !side) {
+      const panel = [...document.querySelectorAll('[data-beside]')].find((p) => p.offsetParent !== null && all.some((el) => p.contains(el)));
+      if (panel) {
+        zone = null;
+        best = pick(panel) || all.find((el) => panel.contains(el));
+        if (best) panel.navFrom = cur;
+      }
+    }
     // Leaving a fenced section to the left, for the menu beside it: always back to the menu's
     // chosen item (the section you're in), whatever's level with you, and wherever it is.
     if (dir === 'left' && cur.closest('[data-zone]:not([data-zone="column"])')) {
