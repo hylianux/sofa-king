@@ -54,7 +54,7 @@ A song counts once you've heard half of it or four minutes of it, whichever come
 
 ## Radio
 
-*All stations* on the Music tab's Radio shelf opens the Radio screen: *Favourites*, *Your stations*, *Recently played* (newest first), *Popular* in your country, *SomaFM*, *Search* and *Country*. ☆ beside a station makes it a favourite.
+*All stations* on the Music tab's Radio shelf opens the Radio screen: *Favourites*, *Your stations*, *Recently played* (newest first; ✕ takes a station off, *Clear all* empties it after asking), *Popular* in your country, *SomaFM*, *Search* and *Country*. ☆ beside a station makes it a favourite. **L1 / R1** switch between the tabs (passing over Search, which asks you to type).
 
 Stations play in mpv. Previous and next move between stations, and the screen shows the song playing if the station sends it. Press B twice to stop.
 

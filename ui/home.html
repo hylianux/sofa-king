@@ -311,7 +311,11 @@
           <p class="eyebrow">Music</p>
           <h1>Radio</h1>
         </div>
-        <div class="segmented" id="radio-tabs"></div>
+        <div class="radio-tabbar">
+          <span><kbd class="tab-key" data-bind="scrollup"></kbd></span>
+          <div class="segmented" id="radio-tabs"></div>
+          <span><kbd class="tab-key" data-bind="scrolldown"></kbd></span>
+        </div>
       </header>
       <div class="radio-body">
         <p class="fine" id="radio-note"></p>
@@ -892,6 +896,19 @@
         <button class="watch-btn jellyfin" data-nav id="choose-resume"></button>
         <button class="watch-btn plain" data-nav id="choose-start">Start over</button>
       </div>
+    </div>
+  </section>
+
+  <!-- "Are you sure?" before something that can't be undone (askSure in home.js) -->
+  <section class="screen" id="screen-sure" hidden>
+    <div class="choose">
+      <p class="eyebrow" id="sure-eyebrow"></p>
+      <h1 id="sure-title"></h1>
+      <div class="choose-buttons">
+        <button class="pill" data-nav id="sure-no"></button>
+        <button class="pill" data-nav id="sure-yes"></button>
+      </div>
+      <p class="fine" id="sure-fine"></p>
     </div>
   </section>
 

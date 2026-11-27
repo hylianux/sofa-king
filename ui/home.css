@@ -1077,7 +1077,10 @@ body {
 
 /* ------------------------------------------------------------ resume or start over */
 
-#screen-choose, #screen-slots, #screen-update, #screen-qr { display: grid; place-items: center; }
+#screen-choose, #screen-slots, #screen-update, #screen-qr, #screen-sure { display: grid; place-items: center; }
+/* Radio's tabs, with the buttons that switch them either side. */
+.radio-tabbar { display: flex; align-items: center; gap: 0.6rem; }
+.radio-tools { display: flex; justify-content: flex-end; margin: 0 0 0.6rem; }
 .qr-pair { display: flex; gap: 3rem; justify-content: center; margin: 0 0 2rem; }
 .qr-pair figure { margin: 0; text-align: center; }
 .qr-pair .qr { width: 15rem; aspect-ratio: 1; padding: 0.6rem; border-radius: 16px; background: #fff; }
@@ -1183,10 +1186,12 @@ body {
 .live-list { min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 0.45rem; padding: 0.5rem; margin: -0.5rem; }
 
 .live-row { display: flex; gap: 0.45rem; flex: none; }
-/* Rows off screen aren't laid out or drawn until they scroll into view: a guide of thousands of
-   channels costs no more than the few on screen. (The size stands in for them until then.) */
+/* Blocks of 40 rows off screen aren't laid out or drawn until they scroll into view: a guide of
+   thousands of channels costs little more than the few on screen. (The size stands in for a block
+   until then.) */
 .live-list { display: block; }
-.live-list > .live-row { margin-bottom: 0.45rem; content-visibility: auto; contain-intrinsic-size: auto 4.4rem; }
+.live-list > .live-block { content-visibility: auto; contain-intrinsic-size: auto calc(40 * 4.85rem); }
+.live-block > .live-row { margin-bottom: 0.45rem; }
 .live-ch {
   flex: 1;
   min-width: 0;

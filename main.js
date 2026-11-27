@@ -3418,6 +3418,17 @@ musicHandler('radio:add', (name, url) => {
   saveRadio();
   return radioState();
 });
+// Radio → Recently played: take one out, or clear the lot.
+musicHandler('radio:recent-remove', (id) => {
+  CONFIG.radio.recent = CONFIG.radio.recent.filter((x) => x.id !== String(id));
+  saveRadio();
+  return markFav(CONFIG.radio.recent);
+});
+musicHandler('radio:recent-clear', () => {
+  CONFIG.radio.recent = [];
+  saveRadio();
+  return [];
+});
 musicHandler('radio:remove', (id) => {
   CONFIG.radio.stations = CONFIG.radio.stations.filter((x) => x.id !== String(id));
   CONFIG.radio.favorites = CONFIG.radio.favorites.filter((x) => x.id !== String(id));
@@ -3601,8 +3612,9 @@ async function rebuildLive(now = Date.now(), { force = false } = {}) {
   }
   live.urls = r.urls;
   if (!r.changed) { log.debug('[live] nothing changed'); return false; }
-  live.channels = r.channels;
-  live.possible = r.possible;
+  const got = r.json ? JSON.parse(r.json) : r; // (sent as text: much quicker to take in)
+  live.channels = got.channels;
+  live.possible = got.possible;
   home?.webContents.send('live:changed');
   return true;
 }

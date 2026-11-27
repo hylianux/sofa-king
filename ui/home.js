@@ -42,7 +42,7 @@ const ERRORS = {
 const screens = {
   home: $('screen-home'), search: $('screen-search'), detail: $('screen-detail'),
   settings: $('screen-settings'), ask: $('screen-ask'),
-  qr: $('screen-qr'), episodes: $('screen-episodes'), choose: $('screen-choose'), update: $('screen-update'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
+  qr: $('screen-qr'), sure: $('screen-sure'), episodes: $('screen-episodes'), choose: $('screen-choose'), update: $('screen-update'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
 };
 let screen = 'home';
 const trail = []; // { screen, focus } to step back through
@@ -67,6 +67,7 @@ function go(name) {
 function back() {
   if (screen === 'ask') { askKeys.handle('back'); return true; }
   if (screen === 'choose') { finishChoose(null); return true; }
+  if (screen === 'sure') { finishSure(false); return true; }
   if (screen === 'update') { finishUpdateOffer(false); return true; }
   if (screen === 'slots') { finishSlots(0); return true; }
   if (screen === 'search' && search.person) {
@@ -87,6 +88,15 @@ function back() {
       return true;
     }
     rememberSettingsPlace();
+  }
+  // Live TV: B along the categories goes back to the first one (B there, to the tabs).
+  if (screen === 'home' && view === 'live' && document.activeElement && document.activeElement.closest('#live-groups')) {
+    const first = $('live-groups').firstElementChild;
+    if (first && document.activeElement !== first) {
+      first.focus(); $('live-groups').scrollTo({ left: 0, behavior: lessMotion() ? 'auto' : 'smooth' });
+      if (window.tvSound) window.tvSound('move');
+      return true;
+    }
   }
   // Live TV: B in the channel list goes up to the categories (B again, to the tabs).
   if (screen === 'home' && view === 'live' && document.activeElement && document.activeElement.closest('#live-list')) {
@@ -296,6 +306,7 @@ for (const t of document.querySelectorAll('#tabs .tab')) t.addEventListener('cli
 tv.onViewStep((dir) => {
   if (screen === 'episodes') return stepSeason(dir);
   if (screen === 'settings') return stepSettingsTab(dir);
+  if (screen === 'radio' && typeof stepRadioTab === 'function') return stepRadioTab(dir);
   if (screen !== 'home') return;
   const i = Math.max(0, Math.min(VIEWS.length - 1, VIEWS.indexOf(view) + dir));
   if (VIEWS[i] !== view) setView(VIEWS[i]);
@@ -976,6 +987,32 @@ function chooseResume(item) {
   $('choose-resume').focus();
   return new Promise((resolve) => { choose.resolve = resolve; });
 }
+
+// "Are you sure?": a screen of its own, starting on No (B is No too). Resolves true for Yes.
+const sure = { resolve: null };
+function askSure({ eyebrow = '', title, yes = 'Yes', no = 'No', fine = '' }) {
+  $('sure-eyebrow').textContent = eyebrow;
+  $('sure-title').textContent = title;
+  $('sure-yes').textContent = yes;
+  $('sure-no').textContent = no;
+  $('sure-fine').textContent = fine;
+  $('sure-fine').hidden = !fine;
+  go('sure');
+  $('sure-no').focus();
+  return new Promise((resolve) => { sure.resolve = resolve; });
+}
+function finishSure(yes) {
+  const resolve = sure.resolve;
+  sure.resolve = null;
+  const prev = trail.pop();
+  if (prev) {
+    show(prev.screen);
+    if (prev.focus && prev.focus.isConnected) prev.focus.focus();
+  }
+  if (resolve) resolve(yes);
+}
+$('sure-yes').addEventListener('click', () => finishSure(true));
+$('sure-no').addEventListener('click', () => finishSure(false));
 
 function finishChoose(result) {
   const resolve = choose.resolve;
@@ -2681,7 +2718,10 @@ tv.onTraktSignIn((r) => {
 // ------------------------------------------------------------ Live TV
 
 const live = { state: null, group: null, timer: null };
-const timeOf = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+// (One formatter, made once: making a new one for every time on a guide of thousands of rows was
+// most of what the guide cost to draw.)
+const TIME_FORMAT = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' });
+const timeOf = (ms) => TIME_FORMAT.format(ms);
 
 // The Live tab: the first screenful of channels straight away, the rest in pieces in the background,
 // so the screen (and moving around it) never waits for a long guide.
@@ -2799,12 +2839,22 @@ function renderLive(st, { focus = false, keep = false } = {}) {
   const focusedId = document.activeElement && document.activeElement.closest('.live-row')?.dataset.id;
   const onFav = document.activeElement && document.activeElement.classList.contains('live-fav');
   const groupFocused = $('live-groups').contains(document.activeElement);
+  const onGroup = groupFocused ? document.activeElement.dataset.group : null;
 
-  $('live-groups').replaceChildren(...groups.map((g) => {
-    const b = el('button', { class: `pill${g.id === live.group ? ' chosen' : ''}`, nav: true, textContent: g.name });
-    b.addEventListener('click', () => { live.group = g.id; renderLive(live.state); $('live-groups').querySelector('.chosen')?.focus(); });
-    return b;
-  }));
+  // The categories: redrawn only when they've changed (more arriving as the guide loads), and then
+  // the highlight stays on the category it was on, rather than jumping back.
+  const groupSig = groups.map((g) => `${g.id}=${g.name}`).join('|');
+  if (groupSig !== live.groupSig) {
+    live.groupSig = groupSig;
+    $('live-groups').replaceChildren(...groups.map((g) => {
+      const b = el('button', { class: 'pill', nav: true, textContent: g.name });
+      b.dataset.group = g.id;
+      b.addEventListener('click', () => { live.group = g.id; renderLive(live.state); b.focus(); });
+      return b;
+    }));
+    if (onGroup) $('live-groups').querySelector(`[data-group="${CSS.escape(onGroup)}"]`)?.focus({ preventScroll: true });
+  }
+  for (const b of $('live-groups').children) b.classList.toggle('chosen', b.dataset.group === live.group);
   const updated = st.updatedAt ? `Updated ${timeOf(st.updatedAt)}` : '';
   $('live-meta').classList.toggle('busy', Boolean(st.refreshing));
   const bits = [st.refreshing ? 'Checking for changes…' : updated];
@@ -2820,7 +2870,7 @@ function renderLive(st, { focus = false, keep = false } = {}) {
   const minute = Math.floor(Date.now() / 60000);
   const parts = shown.map((c) => `${c.id}:${c.favorite ? 1 : 0}:${c.quality || ''}:${liveNowKey(c)}`);
   const sig = `${live.group}|${shown.length}|${parts.join(',')}`;
-  if (keep && sig === live.sig && list.children.length) {
+  if (keep && sig === live.sig && list.firstElementChild) {
     if (minute !== live.sigMinute) { live.sigMinute = minute; liveProgress(); }
     return;
   }
@@ -2832,13 +2882,13 @@ function renderLive(st, { focus = false, keep = false } = {}) {
     if (seq !== live.drawSeq || from >= shown.length) return;
     // Elsewhere now? Carry on when you're back.
     if (view !== 'live' || screen !== 'home') { live.resume = () => more(from); return; }
-    list.append(...shown.slice(from, from + 40).map((c) => liveRow(c, shown)));
+    addLiveRows(list, shown.slice(from, from + 40).map((c) => liveRow(c, shown)));
     setTimeout(() => more(from + 40), 16);
   };
   // The rest of a guide arriving after its first screenful: if what's drawn hasn't changed,
   // just add the rest after it (nothing redrawn, nothing moves).
   const had = live.sigParts || [];
-  const prefix = keep && live.sigGroup === live.group && had.length && had.length <= parts.length && list.children.length === had.length
+  const prefix = keep && live.sigGroup === live.group && had.length && had.length <= parts.length && liveRowCount() === had.length
     && had.every((x, i) => x === parts[i]);
   live.sig = sig;
   live.sigParts = parts;
@@ -2847,18 +2897,47 @@ function renderLive(st, { focus = false, keep = false } = {}) {
   if (prefix) { setTimeout(() => more(had.length), 0); return; }
   const focusAt = focusedId ? shown.findIndex((c) => c.id === focusedId) : -1;
   const first = Math.max(60, Math.ceil((scroll + list.clientHeight * 2) / 64), focusAt + 20);
-  list.replaceChildren(...shown.slice(0, first).map((c) => liveRow(c, shown)));
+  list.replaceChildren();
+  addLiveRows(list, shown.slice(0, first).map((c) => liveRow(c, shown)));
   setTimeout(() => more(first), 0);
   list.scrollTop = scroll;
   if (keep && focusedId) {
     const row = list.querySelector(`.live-row[data-id="${CSS.escape(focusedId)}"]`);
     if (row) (onFav ? row.querySelector('.live-fav') : row.querySelector('.live-ch')).focus();
-  } else if (keep && groupFocused) {
-    $('live-groups').querySelector('.chosen')?.focus();
+  } else if (keep && groupFocused && !$('live-groups').contains(document.activeElement)) {
+    ($('live-groups').querySelector(`[data-group="${CSS.escape(onGroup || '')}"]`) || $('live-groups').querySelector('.chosen'))?.focus();
   }
   if (focus) ((offering && $('lo-yes')) || list.querySelector('.live-ch') || $('live-groups').firstElementChild)?.focus();
   if (!list.contains(document.activeElement)) liveInfo(shown[0]);
 }
+
+// The guide's rows go in blocks of 40. The browser skips drawing blocks that are off screen, and
+// keeps track of 90 blocks rather than thousands of rows and logos (on a small computer, checking
+// every row on every frame was what made scrolling a big guide stutter). Logos load as their block
+// comes into view.
+const LIVE_BLOCK = 40;
+function addLiveRows(list, rows) {
+  let block = list.lastElementChild;
+  while (rows.length) {
+    if (!block || block.childElementCount >= LIVE_BLOCK) {
+      block = el('div', { class: 'live-block' });
+      block.addEventListener('contentvisibilityautostatechange', (e) => { if (!e.skipped) showLogos(block); });
+      list.append(block);
+      // (The first blocks are on screen straight away.)
+      if (list.childElementCount <= 2) requestAnimationFrame(() => showLogos(block));
+    }
+    block.append(...rows.splice(0, LIVE_BLOCK - block.childElementCount));
+    if (block.dataset.seen) showLogos(block);
+  }
+}
+function showLogos(block) {
+  block.dataset.seen = '1';
+  for (const img of block.querySelectorAll('img[data-src]')) { img.src = img.dataset.src; img.removeAttribute('data-src'); }
+}
+const liveRowCount = () => $('live-list').querySelectorAll('.live-row').length;
+// The row above or below, across blocks.
+const rowAfter = (row) => row.nextElementSibling || row.parentElement.nextElementSibling?.firstElementChild || null;
+const rowBefore = (row) => row.previousElementSibling || row.parentElement.previousElementSibling?.lastElementChild || null;
 
 // What's on now, per channel: a change means that row needs redrawing.
 function liveNowKey(c) {
@@ -2870,12 +2949,46 @@ function liveNowKey(c) {
 
 // Up and down in the guide go straight to the row above or below (a guide can have thousands of
 // channels, too many to measure on every press).
+// Along the categories: left and right go to the next one and stop at the ends (no looping round,
+// even while more are still arriving); up goes nowhere; down goes into the channels.
+document.addEventListener('keydown', (e) => {
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) || view !== 'live' || screen !== 'home') return;
+  const btn = document.activeElement;
+  if (!btn || btn.parentElement !== $('live-groups')) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  let to = null;
+  if (e.key === 'ArrowLeft') to = btn.previousElementSibling;
+  else if (e.key === 'ArrowRight') to = btn.nextElementSibling;
+  else if (e.key === 'ArrowDown') {
+    // (Back to the channel you were on, if it's in this category.)
+    to = (live.lastId && $('live-list').querySelector(`.live-row[data-id="${CSS.escape(live.lastId)}"] .live-ch`)) || $('live-list').querySelector('.live-ch');
+  }
+  if (!to) return;
+  to.focus({ preventScroll: e.key === 'ArrowDown' ? false : true });
+  if (e.key !== 'ArrowDown') to.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: lessMotion() ? 'auto' : 'smooth' });
+  if (window.tvSound) window.tvSound('move');
+}, true);
+
+// Left and right along a row: the channel and its ☆, nothing further (measuring every button in a
+// big guide to find the one beside you took a moment of its own).
+document.addEventListener('keydown', (e) => {
+  if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || view !== 'live' || screen !== 'home') return;
+  const btn = document.activeElement;
+  const row = btn && btn.closest('#live-list .live-row');
+  if (!row) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const to = e.key === 'ArrowRight' && btn.classList.contains('live-ch') ? row.querySelector('.live-fav')
+    : e.key === 'ArrowLeft' && btn.classList.contains('live-fav') ? row.querySelector('.live-ch') : null;
+  if (!to) return;
+  to.focus({ preventScroll: true });
+  if (window.tvSound) window.tvSound('move');
+}, true);
 document.addEventListener('keydown', (e) => {
   if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || view !== 'live' || screen !== 'home') return;
   const btn = document.activeElement;
   const row = btn && btn.closest('#live-list .live-row');
   if (!row) return;
-  const next = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+  const next = e.key === 'ArrowDown' ? rowAfter(row) : rowBefore(row);
   if (!next) return; // the top or bottom: the usual way (up to the categories)
   e.preventDefault(); e.stopImmediatePropagation();
   const target = next.querySelector(btn.classList.contains('live-fav') ? '.live-fav' : '.live-ch');
@@ -2895,7 +3008,7 @@ document.addEventListener('keydown', (e) => {
   const dir = e.key === 'PageDown' ? 1 : -1;
   const row = a.closest('#live-list .live-row');
   if (row) {
-    const rows = $('live-list').children;
+    const rows = $('live-list').querySelectorAll('.live-row');
     const per = Math.max(1, Math.floor($('live-list').clientHeight / row.offsetHeight) - 1);
     const at = Array.prototype.indexOf.call(rows, row);
     const to = rows[Math.max(0, Math.min(rows.length - 1, at + dir * per))];
@@ -2950,7 +3063,8 @@ function liveRow(c, shown) {
   const next = c.programmes.find((p) => p.start >= (on ? on.stop - 1000 : now));
   const logo = el('span', { class: 'logo' });
   if (c.logo) {
-    const img = el('img', { alt: '', loading: 'lazy', src: c.logo });
+    const img = el('img', { alt: '' });
+    img.dataset.src = c.logo; // (loaded when its block comes into view: addLiveRows)
     img.addEventListener('error', () => img.replaceWith(el('span', { textContent: initials(c.name) })));
     logo.append(img);
   } else logo.append(el('span', { textContent: initials(c.name) }));

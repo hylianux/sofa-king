@@ -65,7 +65,18 @@ function createStore() {
         .map((e) => [e.play.url, e.play])).values()];
       if (fingerprint === lastFingerprint && !force) return { changed: false, urls };
       lastFingerprint = fingerprint;
-      return { changed: true, channels: merged.channels, possible: merged.possible, urls };
+      // What goes back to the app is trimmed and sent as text: taking in thousands of channels'
+      // full guides held the app (and the controller) up for most of a second. It only needs
+      // what's on from now for a little over two days (search looks two days ahead, and the guide
+      // refreshes every three hours), and descriptions only for the next few hours (only what's on
+      // now shows one).
+      const H = 3600 * 1000;
+      const channels = merged.channels.map((c) => ({
+        ...c,
+        programmes: (c.programmes || []).filter((p) => p.stop > now && p.start < now + 54 * H)
+          .map((p) => (p.desc && p.start >= now + 4 * H ? { ...p, desc: '' } : p)),
+      }));
+      return { changed: true, json: JSON.stringify({ channels, possible: merged.possible }), urls };
     },
     saveCache({ file, at, status }) {
       const entries = [...bySource.values()].flat();

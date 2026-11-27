@@ -730,6 +730,15 @@ function renderRadioTabs() {
   }));
 }
 
+// L1 / R1: the tab before or after, stopping at the ends. (Search is passed over: landing on it
+// would ask you to type.)
+function stepRadioTab(dir) {
+  const tabs = [...$('radio-tabs').children].map((b) => b.dataset.tab).filter((t) => t !== 'search');
+  const i = tabs.indexOf(radio.tab);
+  const to = tabs[Math.max(0, Math.min(tabs.length - 1, (i < 0 ? 0 : i) + dir))];
+  if (to && to !== radio.tab) { if (window.tvSound) window.tvSound('move'); showRadioTab(to); }
+}
+
 async function showRadioTab(tab, { focusList = false } = {}) {
   const seq = ++radio.seq;
   radio.tab = tab;
@@ -762,12 +771,27 @@ async function showRadioTab(tab, { focusList = false } = {}) {
   radio.list = r.ok;
   note.textContent = r.ok.length ? ({ favorites: 'Your favourite stations. ☆ beside any station adds it here.', mine: 'Stations you added (Settings → Music → Radio).', recent: 'The stations you\'ve listened to lately, newest first.', popular: `The most played stations in ${(radio.state && radio.state.country) || 'your country'}.`, somafm: 'Listener-supported, ad-free channels from San Francisco.', search: `Stations matching “${radio.search}”.` }[tab] || '')
     : ({ favorites: 'No favourites yet. Press ☆ beside a station to add it.', mine: 'Add your own in Settings → Music → Radio.', recent: 'Nothing yet: stations you listen to show up here.', search: `Nothing found for “${radio.search}”.` }[tab] || 'Nothing here.');
-  listBox.replaceChildren(...r.ok.map((st, i) => radioRow(st, i)));
+  listBox.replaceChildren(...r.ok.map((st, i) => radioRow(st, i, { removable: tab === 'recent' })));
+  // Recently played: a way to clear the lot (after asking).
+  if (tab === 'recent' && r.ok.length) {
+    listBox.prepend(el('div', { class: 'radio-tools' }, el('button', { class: 'pill quiet', nav: true, textContent: 'Clear all', onclick: clearRecentRadio })));
+  }
   if (focusList || tab === 'search') listBox.querySelector('.radio-st')?.focus();
 }
 
-// A station: ☆ to make it a favourite, then the station itself (OK plays it).
-function radioRow(st, i) {
+async function clearRecentRadio() {
+  const ok = await askSure({ eyebrow: 'Radio', title: 'Clear your recently played stations?', yes: 'Yes, clear them', no: 'No, keep them', fine: 'Your favourites and your own stations stay as they are.' });
+  if (!ok) return;
+  const r = await tv.radioRecentClear();
+  if (r.error) { toast('Couldn\'t clear them. Try again.', 3000); return; }
+  toast('Cleared your recently played stations.', 3000);
+  showRadioTab('recent');
+  $('radio-tabs').querySelector('[data-tab="recent"]')?.focus();
+}
+
+// A station: ☆ to make it a favourite, then the station itself (OK plays it). In Recently played,
+// ✕ after it takes it off the list.
+function radioRow(st, i, { removable = false } = {}) {
   const fav = el('button', { class: `live-fav${st.favorite ? ' on' : ''}`, nav: true, textContent: st.favorite ? '★' : '☆', title: st.favorite ? 'Remove from favourites' : 'Add to favourites' });
   fav.addEventListener('click', async () => {
     const r = await tv.radioFavorite(st, !st.favorite);
@@ -784,6 +808,25 @@ function radioRow(st, i) {
   const btn = el('button', { class: 'radio-st', nav: true, onclick: () => playStation(radio.list, i) },
     logo, el('span', { class: 'st-name', textContent: st.name }), el('span', { class: 'st-about', textContent: st.about || '' }));
   const row = el('div', { class: 'radio-row' }, fav, btn);
+  if (removable) {
+    const x = el('button', { class: 'live-fav radio-x', nav: true, textContent: '✕', title: 'Take it off this list', 'aria-label': `Take ${st.name} off this list` });
+    x.addEventListener('click', async () => {
+      const r = await tv.radioRecentRemove(st.id);
+      if (r.error) return;
+      // Stay where you were: the next row's ✕, or the one before.
+      const next = row.nextElementSibling || row.previousElementSibling;
+      row.remove();
+      radio.list = r.ok;
+      // (Each row plays from the list as it now is.)
+      showRadioTab('recent').then(() => {
+        const rows = [...$('radio-list').querySelectorAll('.radio-row')];
+        const at = next && next.dataset.key ? rows.find((x) => x.dataset.key === next.dataset.key) : null;
+        (at ? at.querySelector('.radio-x') : $('radio-list').querySelector('.radio-tools .pill') || $('radio-tabs').querySelector('[data-tab="recent"]'))?.focus();
+      });
+      toast(`Took ${st.name} off Recently played.`, 3000);
+    });
+    row.append(x);
+  }
   row.dataset.key = st.id;
   return row;
 }

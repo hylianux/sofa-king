@@ -27,7 +27,9 @@ say('a path with odd characters is refused:', visuals.graphFor('cover', '/tmp/a;
 
 const { app, BaseWindow } = require('electron');
 app.setPath('userData', UD);
-fs.writeFileSync(path.join(UD, 'config.json'), JSON.stringify({ live: { iptvOrgAsked: true }, mpvVisual: 'bars', playback: { confirmStop: false } }));
+fs.writeFileSync(path.join(UD, 'config.json'), JSON.stringify({ live: { iptvOrgAsked: true }, mpvVisual: 'bars', playback: { confirmStop: false },
+  // (Some stations heard before, for Recently played. Never played here.)
+  radio: { recent: ['One', 'Two', 'Three'].map((n) => ({ id: `my-old-${n}`, name: `Old ${n} FM`, url: `http://127.0.0.1:9/${n}`, source: 'mine' })) } }));
 const srv = http.createServer((req, res) => {
   if (req.url === '/logo.png') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(fs.readFileSync(LOGO)); return; }
   res.writeHead(200, { 'content-type': 'audio/mpeg' }); fs.createReadStream(SONG).pipe(res);
@@ -79,6 +81,29 @@ app.whenReady().then(async () => {
   say('volume kept for next time:', cfg.mpvVolume, cfg.mpvVolume === 0 ? 'PASS' : 'FAIL');
   const tab = await js("openRadio('recent').then(() => new Promise((r) => setTimeout(r, 800))).then(() => [document.querySelector('#radio-tabs .chosen').textContent, [...document.querySelectorAll('#radio-list .radio-st')].map((b) => b.textContent).join(' / ')].join(': '))");
   say('Radio → Recently played:', tab, /^Recently played: .*Test FM/.test(tab) ? 'PASS' : 'FAIL');
+  // ✕ takes one off; Clear all asks first (No to start with, B is No), Yes clears.
+  const names = () => js("[...document.querySelectorAll('#radio-list .st-name')].map((x) => x.textContent).join(' / ')");
+  const before = await names();
+  await js("[...document.querySelectorAll('#radio-list .radio-row')].find((r) => /Old Two/.test(r.textContent)).querySelector('.radio-x').click(); 0"); await wait(1200);
+  const after = await names();
+  say(`✕ on Old Two FM: ${before} → ${after} | focus on: ${await js("document.activeElement.className + ' ' + (document.activeElement.closest('.radio-row') || {}).textContent")}`, !/Old Two/.test(after) && /Old Three/.test(after) ? 'PASS' : 'FAIL');
+  await js("document.querySelector('.radio-tools .pill').click(); 0"); await wait(600);
+  say('Clear all asks:', await js("screen + ': ' + document.getElementById('sure-title').textContent + ' | on: ' + document.activeElement.textContent"));
+  await js("back(); 0"); await wait(600);
+  say('B keeps them:', await js('screen'), await names() === after ? 'PASS' : 'FAIL');
+  await js("document.querySelector('.radio-tools .pill').click(); 0"); await wait(600);
+  await js("document.getElementById('sure-yes').click(); 0"); await wait(1200);
+  const cfg2 = JSON.parse(fs.readFileSync(path.join(UD, 'config.json'), 'utf8'));
+  say('Yes clears them:', await js('screen'), JSON.stringify(await names()), '| saved:', cfg2.radio.recent.length, cfg2.radio.recent.length === 0 && !(await names()) ? 'PASS' : 'FAIL');
+  // L1 / R1 switch tabs (stopping at the ends); the buttons show either side of them.
+  const { ipcMain } = require('electron');
+  const tabNow = () => js("document.querySelector('#radio-tabs .chosen').textContent");
+  ipcMain.emit('pad', { sender: wc }, 'scrollup'); await wait(800); const t1 = await tabNow();
+  ipcMain.emit('pad', { sender: wc }, 'scrollup'); await wait(800); const t2 = await tabNow();
+  ipcMain.emit('pad', { sender: wc }, 'scrollup'); await wait(800); const t3 = await tabNow();
+  say(`L1 from Recently played: ${t1} → ${t2} → ${t3} | hints: ${await js("[...document.querySelectorAll('.radio-tabbar kbd')].map((k) => k.textContent).join(' … ')")}`, t1 === 'Your stations' && t2 === '★ Favourites' && t3 === '★ Favourites' ? 'PASS' : 'FAIL');
+  await js("document.querySelector('#radio-tabs .chosen').focus(); 0");
+  fs.writeFileSync(path.join(__dirname, 'out', 'visuals-radio-tabs.png'), (await wc.capturePage()).toPNG());
   await ask(['quit']); await wait(2000);
   say('awake lifted after quitting:', awake.at(-1) === 'UnInhibit' ? 'PASS' : 'FAIL');
   say('covers tidied after quitting: (checked at exit)');

@@ -116,7 +116,7 @@ app.whenReady().then(async () => {
   await key('Escape'); await wait(500);
   await js("show('home'); setView('live'); 0"); await wait(3500);
   await js("document.querySelectorAll('#live-list .live-ch')[3].focus(); 0"); await wait(300);
-  const row = () => js("(() => { const r = document.activeElement.closest('.live-row'); return r ? [...r.parentNode.children].indexOf(r) : document.activeElement.closest('#live-groups') ? 'categories: ' + document.activeElement.textContent : document.activeElement.className; })()");
+  const row = () => js("(() => { const r = document.activeElement.closest('.live-row'); return r ? [...document.querySelectorAll('#live-list .live-row')].indexOf(r) : document.activeElement.closest('#live-groups') ? 'categories: ' + document.activeElement.textContent : document.activeElement.className; })()");
   await key('PageDown'); const g1 = await row();
   await key('PageDown'); const g2 = await row();
   await key('PageUp'); const g3 = await row();
@@ -169,5 +169,17 @@ app.whenReady().then(async () => {
   const rows = await js("[...document.querySelectorAll('#live-list .live-row')].map((r) => r.querySelector('.live-ch').textContent.replace(/\\s+/g, ' ').trim()).join(' / ')");
   say('Live categories:', groups, '| Recently watched:', rows.slice(0, 80), /Recently watched/.test(groups) && /Film Four/.test(rows) && !/Channel/.test(rows) ? 'PASS' : 'FAIL');
   await shot('recent');
+  // The categories: left / right stop at the ends (no looping round), up goes nowhere, B goes back
+  // to the first, down goes into the channels.
+  const cat = () => js("document.activeElement.closest('#live-groups') ? document.activeElement.textContent : 'not on the categories: ' + document.activeElement.className");
+  await js("document.querySelector('#live-groups .pill').focus(); 0");
+  const seen = [];
+  for (let i = 0; i < 10; i++) { await key('Right'); seen.push(await cat()); }
+  await key('Up'); const up = await cat();
+  await key('Escape'); const b = await cat();
+  await key('Left'); const left = await cat();
+  await key('Down'); const down = await js("document.activeElement.className");
+  say('categories, Right x10:', seen.join(' > '), '| Up:', up, '| B:', b, '| Left at the start:', left, '| Down:', down,
+    seen.at(-1) === 'G4' && seen.at(-2) === 'G4' && up === 'G4' && /^All/.test(b) && /^All/.test(left) && /live-ch/.test(down) ? 'PASS' : 'FAIL');
   app.exit(0);
 });

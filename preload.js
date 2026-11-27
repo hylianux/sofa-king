@@ -78,6 +78,8 @@ if (location.protocol === 'file:') {
     radioCountries: () => ipcRenderer.invoke('radio:countries'),
     radioSetCountry: (code) => ipcRenderer.invoke('radio:set-country', String(code || '')),
     radioSomafm: (on) => ipcRenderer.invoke('radio:somafm', Boolean(on)),
+    radioRecentRemove: (id) => ipcRenderer.invoke('radio:recent-remove', String(id)),
+    radioRecentClear: () => ipcRenderer.invoke('radio:recent-clear'),
     radioFavorite: (station, on) => ipcRenderer.invoke('radio:favorite', plain(station, STATION_KEYS), Boolean(on)),
     radioAdd: (name, url) => ipcRenderer.invoke('radio:add', String(name || ''), String(url || '')),
     radioRemove: (id) => ipcRenderer.invoke('radio:remove', String(id)),
