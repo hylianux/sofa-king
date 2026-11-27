@@ -21,9 +21,12 @@ function findBin(name) {
   return null;
 }
 
+// Answers in English, so what they say can be recognised whatever the system's language.
+const ENGLISH = { ...process.env, LC_ALL: 'C', LANG: 'C' };
+
 function run(cmd, args, timeout = 8000) {
   return new Promise((resolve) => {
-    execFile(cmd, args, { timeout }, (err, stdout, stderr) => {
+    execFile(cmd, args, { timeout, env: ENGLISH }, (err, stdout, stderr) => {
       resolve({
         code: err ? (typeof err.code === 'number' ? err.code : -1) : 0,
         stdout: String(stdout || ''),
@@ -231,7 +234,7 @@ function allowWithPassword(fw, network, ports, password) {
   if (!sudo) return Promise.resolve({ error: 'no-sudo', command: p.display });
   return new Promise((resolve) => {
     // -S: read the password from input; -k: don't reuse an earlier sign-in; -p '': no prompt text.
-    const child = execFile(sudo, ['-S', '-k', '-p', '', '--', ...p.exec], { timeout: 60 * 1000 }, (err, stdout, stderr) => {
+    const child = execFile(sudo, ['-S', '-k', '-p', '', '--', ...p.exec], { timeout: 60 * 1000, env: ENGLISH }, (err, stdout, stderr) => {
       const said = String(stderr || stdout || '').trim();
       if (!err) return resolve({ ok: true });
       if (/incorrect password|sorry, try again|password attempts?/i.test(said)) return resolve({ error: 'wrong-password', command: p.display });

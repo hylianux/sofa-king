@@ -14,8 +14,16 @@ const blocker = require('http').createServer().listen(8765, '0.0.0.0');
 // (Stand-ins, so nothing on this computer changes.)
 const firewall = require(path.join(__dirname, '..', '..', 'firewall.js'));
 let typed = null;
-firewall.allow = async () => ({ error: 'no-agent', command: 'sudo ufw …' });
-firewall.allowWithPassword = async (fw, network, ports, password) => { typed = { network, ports, password }; return password === 'hunter2' ? { ok: true } : { error: 'wrong-password' }; };
+// First as if no prompt can be shown, then as if the system refused before asking (what the
+// owner's other computer did).
+let refusals = ['no-agent', 'not-allowed', 'not-allowed'];
+firewall.allow = async () => ({ error: refusals.shift() || 'not-allowed', detail: 'Error executing command as another user: Not authorized', command: 'sudo ufw …' });
+firewall.allowWithPassword = async (fw, network, ports, password) => {
+  typed = { network, ports, password };
+  if (password === 'hunter2') return { ok: true };
+  if (password === 'odd') return { error: 'failed', detail: 'sudo: something unexpected' };
+  return { error: 'wrong-password' };
+};
 const realDetect = firewall.detect;
 firewall.detect = async (o) => ({ ...(await realDetect(o)), ...(typed && typed.password === 'hunter2' ? { open: true } : {}) });
 require(path.join(__dirname, '..', '..', 'main.js'));
@@ -53,6 +61,10 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(__dirname, 'out', 'trouble-ask.png'), (await wc.capturePage()).toPNG());
   await js("finishAsk('wrong'); 0"); await wait(800);
   say('wrong password:', await js('screen'), '|', await js("document.getElementById('s-note').textContent"));
+  await js("document.getElementById('s-allow').click(); 0"); await wait(1500);
+  say('system refused -> typing screen:', await js('screen'), '|', await js("document.getElementById('ask-hint').textContent"));
+  await js("finishAsk('odd'); 0"); await wait(800);
+  say('unexpected failure:', await js("document.getElementById('s-note').textContent"));
   await js("document.getElementById('s-allow').click(); 0"); await wait(1500);
   await js("finishAsk('hunter2'); 0"); await wait(800);
   say('right password:', await js("document.getElementById('s-note').textContent"), '| focus', await where(), '| sent', JSON.stringify(typed));

@@ -1659,7 +1659,7 @@ ipcMain.handle('ui:firewall-password', async (event, password) => {
   const { fw, network, ports } = await firewallPlan();
   if (!fw || !network) return { error: 'unsupported' };
   const r = await firewall.allowWithPassword(fw, network, ports, password);
-  console.log(`[firewall] allow with typed password: ${r.ok ? 'done' : r.error}`);
+  console.log(`[firewall] allow with typed password: ${r.ok ? 'done' : r.error}${r.detail ? ` (sudo said: ${r.detail})` : ''}`);
   if (!r.ok) return r;
   const after = await firewallPlan();
   return { ok: true, open: after.fw ? after.fw.open : null };

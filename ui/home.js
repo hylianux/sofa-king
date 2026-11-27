@@ -1431,7 +1431,7 @@ async function showTrouble() {
 
 function firewallAllowed(r) {
   if (r.open === false) {
-    note('The firewall said yes, but it still looks closed. Try the command below in a terminal.');
+    note(`The firewall said yes, but it still looks closed. ${RUN_IT}`);
     return;
   }
   note('Done. Scan the code again on your phone.', true);
@@ -1445,21 +1445,26 @@ function firewallAllowed(r) {
   phoneTimer = setTimeout(showTrouble, 20000);
 }
 
+// (The command sits in the box on the right, under the QR code, not under these messages.)
+const RUN_IT = 'You can run the command in the box on the right in a terminal instead.';
 const FIREWALL_ERRORS = {
   cancelled: 'The password prompt was closed, so nothing changed.',
-  'not-allowed': 'The system didn\'t accept that, so nothing changed. Check the password, or run the command below in a terminal.',
-  'wrong-password': 'That password wasn\'t accepted, so nothing changed.',
-  'not-sudoer': 'This account isn\'t allowed to change system settings. Ask whoever runs this computer to run the command below.',
-  'no-sudo': 'This system can\'t take a password from here. Run the command below in a terminal instead.',
+  'wrong-password': 'That password wasn\'t accepted, so nothing changed. Choose Allow on my home network to try again.',
+  'not-sudoer': 'This account isn\'t allowed to change system settings. Ask whoever runs this computer to run the command in the box on the right.',
+  'no-sudo': `This system can't take a password from here. ${RUN_IT}`,
 };
+// What went wrong, in the system's own words when we have them (so it can be looked into).
+function firewallFailed(r) {
+  note(FIREWALL_ERRORS[r.error] || `That didn't work${r.detail ? ` (the system said: “${r.detail}”).` : '.'} ${RUN_IT}`);
+}
 
-// No system password prompt on this screen (Steam's Game Mode and other TV-style sessions have
-// none): type it on our own keyboard instead.
-async function firewallTypedPassword() {
+// When the system's own password prompt can't be used (there isn't one on this screen, as in
+// Steam's Game Mode, or it refused before asking): type the password on our own keyboard.
+async function firewallTypedPassword(why) {
   const password = await askFor({
     eyebrow: 'Allow the phone remote',
     label: 'Your computer\'s password',
-    hint: 'There\'s no system password prompt on this screen, so type it here. It\'s used once to change the firewall, and never saved.',
+    hint: `${why === 'no-agent' ? 'There\'s no system password prompt on this screen' : 'The system\'s password prompt didn\'t work here'}, so type it here. It's used once to change the firewall, and never saved.`,
     secret: true,
     phone: false,
   });
@@ -1467,15 +1472,15 @@ async function firewallTypedPassword() {
   note('Changing the firewall…');
   const r = await tv.firewallPassword(password);
   if (r.ok) firewallAllowed(r);
-  else note(FIREWALL_ERRORS[r.error] || `That didn't work${r.detail ? `: ${r.detail}` : '.'} You can run the command below in a terminal instead.`);
+  else firewallFailed(r);
 }
 
 $('s-allow').addEventListener('click', async () => {
   note('Waiting for the password prompt…');
   const r = await tv.firewallAllow();
   if (r.ok) firewallAllowed(r);
-  else if (r.error === 'no-agent') firewallTypedPassword();
-  else note(FIREWALL_ERRORS[r.error] || `That didn't work${r.detail ? `: ${r.detail}` : '.'} You can run the command below in a terminal instead.`);
+  else if (r.error === 'no-agent' || r.error === 'not-allowed') firewallTypedPassword(r.error);
+  else firewallFailed(r);
 });
 
 tv.onPhoneConnected(() => {
