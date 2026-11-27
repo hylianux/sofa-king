@@ -1300,6 +1300,9 @@ body {
   display: none; height: 100%; flex-direction: column; min-height: 0;
   overflow-y: auto; padding: 0.4rem 1rem 1rem 0.6rem; margin: -0.4rem -1rem 0 -0.6rem;
   scroll-behavior: smooth;
+  /* Scrolling an option into view leaves room for it growing as it's highlighted, and for the
+     section's name pinned at the top. */
+  scroll-padding: 3.4rem 0 1rem;
 }
 .s-group.on { display: flex; }
 .s-group > * { flex: none; }
@@ -1842,7 +1845,8 @@ body:not(.big-cards) :where(#screen-home) .searchbar { margin-bottom: 1.6rem; pa
 
 body.less-motion .m-art, body.less-motion .card:focus .m-art { transition: none; transform: none; }
 /* (The switches here are a list: not the whole width, so the grow on focus fits.) */
-.s-panel[data-tab="youtube"] .toggle, .s-panel[data-tab="music"] .toggle { max-width: 46rem; }
+.s-panel[data-tab="youtube"] .toggle, .s-panel[data-tab="music"] .toggle,
+.s-panel[data-tab="advanced"] .toggle, .s-panel[data-tab="developer"] .toggle { max-width: 46rem; }
 
 /* Radio: a list of stations, each with its ☆ (like Live TV's channels). */
 #screen-radio { padding: 3.5rem 5rem 2rem; }
@@ -1878,3 +1882,7 @@ body.less-motion .radio-st:focus { transform: none; }
 
 /* Settings → Updates: what's new in the next version. */
 .up-news { margin: 0.4rem 0 0.8rem; padding-left: 1.3rem; color: var(--muted); line-height: 1.5; }
+
+/* Settings → Advanced: room between the switch and its "Pretends with" button, so the switch
+   growing as it's highlighted doesn't reach the button (Down would then miss it). */
+#gs-person-how-row { margin-top: 0.9rem; }

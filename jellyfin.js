@@ -125,6 +125,31 @@ function createJellyfin({ deviceId, version, log = { debug() {} } }) {
     }
   }
 
+  // Which TMDB ids each server has, for titles a name search can't find: your copy's name can
+  // differ from TMDB's ("Christmas Vacation" on the server, "National Lampoon's Christmas
+  // Vacation" on TMDB) even when it was identified with TMDB. Read in one go (names and ids
+  // only, about 1.5 MB for 3,000 titles) the first time it's needed, and kept for half an hour.
+  const ID_INDEX_AGE = 30 * 60 * 1000;
+  const idIndexes = new Map(); // server id -> { at, ready: Promise<Map("movie:5825" -> item)> }
+  function idIndex(server) {
+    const have = idIndexes.get(server.id);
+    if (have && Date.now() - have.at < ID_INDEX_AGE) return have.ready;
+    const ready = itemsQuery(server, {
+      includeItemTypes: 'Movie,Series', recursive: 'true', fields: 'ProviderIds', enableImages: 'false', enableUserData: 'false',
+    }).then((r) => {
+      const map = new Map();
+      for (const it of (r && r.Items) || []) {
+        const ids = it.ProviderIds || {};
+        const id = ids.Tmdb || ids.tmdb || ids.TMDB;
+        if (id) map.set(`${it.Type === 'Series' ? 'tv' : 'movie'}:${id}`, it);
+      }
+      return map;
+    });
+    idIndexes.set(server.id, { at: Date.now(), ready });
+    ready.catch(() => idIndexes.delete(server.id)); // (try again next time)
+    return ready;
+  }
+
   // Is this TMDB title in this server's libraries? Matches the TMDB id, or failing that name + year.
   async function findOn(server, { kind, tmdbId, title, year }) {
     const r = await itemsQuery(server, {
@@ -139,8 +164,9 @@ function createJellyfin({ deviceId, version, log = { debug() {} } }) {
       const ids = it.ProviderIds || {};
       return String(ids.Tmdb || ids.tmdb || ids.TMDB || '');
     };
-    const hit = items.find((it) => tmdb(it) === String(tmdbId)) ||
-      items.find((it) => simplify(it.Name) === simplify(title) && (!year || !it.ProductionYear || String(it.ProductionYear) === String(year)));
+    let hit = items.find((it) => tmdb(it) === String(tmdbId));
+    if (!hit && tmdbId) hit = (await idIndex(server).catch(() => new Map())).get(`${kind === 'tv' ? 'tv' : 'movie'}:${tmdbId}`);
+    if (!hit) hit = items.find((it) => simplify(it.Name) === simplify(title) && (!year || !it.ProductionYear || String(it.ProductionYear) === String(year)));
     return hit ? { serverId: server.id, serverName: server.name, itemId: hit.Id, itemType: hit.Type, name: hit.Name } : null;
   }
 

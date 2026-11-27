@@ -21,6 +21,12 @@ On the Steam Deck, do this in **Desktop Mode** (Steam's artwork options are only
 1. In Steam: **Games → Add a Non-Steam Game to My Library → Browse**, pick the AppImage, then **Add Selected Programs**.
 2. Right-click it in your library → **Properties** → **Controller**: set it to **Disable Steam Input**. Otherwise Steam keeps the controller to itself and the app can't see it.
 
+**The screen dimming during a film.** While a film, show or live channel plays, the app tells the computer someone's watching, so the screen doesn't dim or the computer go to sleep (paused, it's allowed to again). Desktops listen for this, but Steam's Game Mode doesn't, so there the dimmer still comes on. Ways round it:
+
+- **The tidy fix:** install [Decky Loader](https://decky.xyz) (in Desktop Mode), then the plugin [DeckyInhibitScreenSaver](https://github.com/xfangfang/DeckyInhibitScreenSaver) from its Releases page, and switch on its Background Monitor. It adds the listener Game Mode is missing.
+- **Steam's own settings:** turn its screen dimming off, or make it longer.
+- **Let the app do it (experimental):** Settings → Advanced → Gamescope fixes. *Turn Steam's dimming off while a film plays* does what the plugin does, through Steam's debugging port (restart Steam once; while that port is open, any program on the computer could control Steam). *Pretend someone's using the controller* makes a pretend controller (or keyboard) that nudges every 30 seconds so Steam sees someone there; it's untested in Game Mode, so try both kinds. Both only act in Game Mode, while a picture plays. If the plugin is installed (or running), both say they aren't needed.
+
 **Its pictures.** Steam shows a plain grey tile for non-Steam games. Ready-made pictures are in the [build/steam](https://github.com/hylianux/sofa-king/tree/main/build/steam) folder (open each and use *Download raw file*):
 
 | Picture | Where Steam shows it | How to set it |

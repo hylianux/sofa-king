@@ -10,11 +10,12 @@
 const path = require('path');
 const fs = require('fs');
 const electron = require('electron');
-const { app, BaseWindow, WebContentsView, ipcMain, session, clipboard, protocol } = electron;
+const { app, BaseWindow, WebContentsView, ipcMain, session, clipboard, protocol, powerSaveBlocker } = electron;
 const components = electron.components; // only present in the castLabs build
 const { createTmdb } = require('./tmdb');
 const { createPhoneRemote } = require('./phone');
 const firewall = require('./firewall');
+const gamescope = require('./gamescope');
 const apps = require('./apps');
 const { createJellyfin } = require('./jellyfin');
 const { createWatchmode } = require('./watchmode');
@@ -126,6 +127,8 @@ const EXTRA_PAGES = [
   { id: 'lastfm-key', name: 'Last.fm', url: 'https://www.last.fm/api/account/create', returnLabel: 'Back to setup', grab: 'lastfm' },
   { id: 'vacuumtube-info', name: 'VacuumTube', url: 'https://github.com/shy1132/VacuumTube', returnLabel: 'Back' },
   { id: 'mpv-info', name: 'mpv', url: 'https://mpv.io', returnLabel: 'Back' },
+  { id: 'decky', name: 'Decky Loader', url: 'https://decky.xyz', returnLabel: 'Back to settings' },
+  { id: 'decky-inhibit', name: 'DeckyInhibitScreenSaver', url: 'https://github.com/xfangfang/DeckyInhibitScreenSaver', returnLabel: 'Back to settings' },
 ];
 // Rent-or-buy stores: not "your services", but every store shown on a title's page opens somewhere.
 const STORES = JSON.parse(fs.readFileSync(path.join(__dirname, 'stores.json'), 'utf8'));
@@ -199,6 +202,9 @@ function loadConfig() {
     bindings: cleanBindings(merged.bindings),
     debugLog: merged.debugLog === true,
     mpvScreen: Number.isInteger(merged.mpvScreen) ? merged.mpvScreen : null, // null: the app's own screen
+    // Speakers in mpv (the sound button steps through these, and the last one picked is kept).
+    mpvSound: player.SOUND_CHOICES.some((c) => c.value === merged.mpvSound) ? merged.mpvSound : 'auto-safe',
+    gamescope: cleanGamescope(merged.gamescope),
     fullScreen: merged.fullScreen !== false, // the app fills the screen (unless started with --windowed)
     motion: merged.motion !== false, // animations (off: everything moves straight to where it's going)
     kbConfirm: merged.kbConfirm !== false, // "are you sure?" before sending or cancelling typing (on by default)
@@ -2324,7 +2330,7 @@ function cleanPlayback(saved) {
 
 const DEFAULT_MPV_BINDINGS = {
   pause: 0, stop: 1, subs: 2, skip: 3, prev: 4, next: 5, back60: 6, fwd60: 7,
-  audio: 8, time: 9, volup: 12, voldown: 13, back10: 14, fwd30: 15,
+  audio: 8, time: 9, sound: 10, volup: 12, voldown: 13, back10: 14, fwd30: 15,
 };
 const MPV_ACTIONS = Object.keys(DEFAULT_MPV_BINDINGS);
 
@@ -2336,6 +2342,11 @@ function cleanMpvBindings(saved) {
       if (n === null) out[a] = null;
       else if (Number.isInteger(n) && n >= 0 && n <= 16) out[a] = n;
     }
+    // An action added since these were saved doesn't take a button you've already given to another.
+    for (const a of MPV_ACTIONS) {
+      if (a in saved || out[a] == null) continue;
+      if (MPV_ACTIONS.some((b) => b !== a && out[b] === out[a])) out[a] = null;
+    }
   }
   return out;
 }
@@ -2346,11 +2357,38 @@ const BUTTON_NAMES = {
 };
 const buttonName = (i) => (i == null ? '—' : BUTTON_NAMES[i] || `Button ${i}`);
 
-function mpvHelp() {
-  const n = (a) => buttonName(CONFIG.mpvBindings[a]);
-  return `${n('pause')} pause · ${n('prev')} ${n('next')} episode · ${n('skip')} skip intro/credits · ` +
-    `${n('subs')} subtitles · ${n('audio')} audio · ${n('stop')} stop`;
+// The panel of buttons mpv shows (when it starts, while paused, and on the time button), for
+// what's playing: 'video' (films and shows), 'song', 'station' or 'live'.
+function mpvHelp(kind = 'video') {
+  const b = CONFIG.mpvBindings;
+  const keys = (...actions) => (actions.every((a) => b[a] != null) ? actions.map((a) => buttonName(b[a])) : null);
+  const items = [];
+  const add = (label, ...actions) => { const k = keys(...actions); if (k) items.push({ keys: k, label }); };
+  const one = { video: 'episode', song: 'song', station: 'station', live: 'channel' }[kind];
+  add('Pause', 'pause');
+  add(`Previous / next ${one}`, 'prev', 'next');
+  if (kind === 'video') add('Skip intro / credits', 'skip');
+  if (kind === 'live') add('What\'s on', 'skip');
+  if (kind === 'video' || kind === 'song') add('Back 10 s / ahead 30 s', 'back10', 'fwd30');
+  if (kind === 'video') add('Back / ahead 1 min', 'back60', 'fwd60');
+  if (kind === 'video' || kind === 'live') add('Subtitles', 'subs');
+  if (kind === 'video' || kind === 'live') add('Audio track', 'audio');
+  add('Volume', 'volup', 'voldown');
+  add('Speakers', 'sound');
+  add('Stop', 'stop');
+  return items;
 }
+function mpvHelpFooter() {
+  const t = CONFIG.mpvBindings.time;
+  return t == null ? 'Pause to see these again' : `Pause, or press ${buttonName(t)}, to see these again`;
+}
+// What every mpv start shares: the panel's footer, the speakers, and whether panels fade.
+const mpvCommon = () => ({
+  helpFooter: mpvHelpFooter(),
+  sound: CONFIG.mpvSound,
+  motion: CONFIG.motion,
+  onSound: (value) => { CONFIG.mpvSound = value; saveUserConfig({ mpvSound: value }); },
+});
 
 const titleOf = (e) => (e.series ? `${e.series} · S${e.season ?? '?'}E${e.episode ?? '?'} · ${e.name}` : e.name);
 
@@ -2382,7 +2420,9 @@ async function playInMpv(server, itemId, resume, how) {
     tokenHeader: server.type === 'plex' ? 'X-Plex-Token' : 'X-Emby-Token',
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
-    help: mpvHelp(),
+    help: mpvHelp('video'),
+    ...mpvCommon(),
+    keepAwake: true,
     loadingText: (i) => `Loading ${entries[i] ? entries[i].title : ''}…`,
     log, logFile: mpvLogFile(how),
     autoplay: CONFIG.playback.autoplay,
@@ -2406,11 +2446,56 @@ async function playInMpv(server, itemId, resume, how) {
 // one) gets the buttons from the app instead: the home page keeps reading the controller while mpv
 // is in front and sends each press here ('pad-raw'), and it's passed to mpv by name.
 let padlessMpv = null;
+// While a picture plays (opts.keepAwake: films, shows, live TV; not radio or music), the computer
+// is told someone's watching, so the screen doesn't dim or the computer sleep. This is the standard
+// "don't dim" request desktops honour (mpv sends its own there too). Steam's Game Mode has nothing
+// that listens for it, unless the DeckyInhibitScreenSaver plugin is installed. Lifted while paused.
+let awakeId = null;
+function keepAwake(on) {
+  if (on && awakeId == null) { awakeId = powerSaveBlocker.start('prevent-display-sleep'); gamescopeWatching(true); }
+  else if (!on && awakeId != null) { powerSaveBlocker.stop(awakeId); awakeId = null; gamescopeWatching(false); }
+}
+// ---- Settings → Advanced → Gamescope fixes (only in Steam's Game Mode, only while a picture plays)
+function cleanGamescope(saved) {
+  const g = saved && typeof saved === 'object' ? saved : {};
+  return {
+    steamDim: g.steamDim === true, // turn Steam's dimming off while watching (Steam's debugging port)
+    person: g.person === true, // a pretend controller or keyboard that keeps Steam's idle timer awake
+    personHow: g.personHow === 'keyboard' ? 'keyboard' : 'controller',
+    madePort: g.madePort === true, // we opened Steam's debugging port (so we may close it again)
+    dimmedOff: g.dimmedOff === true, // Steam's dimming is off right now, by us (put back on next start if we quit mid-film)
+  };
+}
+const pretendPerson = gamescope.createPerson({ log });
+function saveGamescope(patch) {
+  CONFIG.gamescope = { ...CONFIG.gamescope, ...patch };
+  saveUserConfig({ gamescope: CONFIG.gamescope });
+}
+async function steamDimmingBack() {
+  try {
+    await gamescope.steamDimming(true);
+    saveGamescope({ dimmedOff: false });
+    log.info('[gamescope] Steam\'s dimming back on (5 minutes, sleep after 10)');
+  } catch (err) { log.warn(`[gamescope] couldn't put Steam's dimming back: ${err.code || err.message}`); }
+}
+function gamescopeWatching(on) {
+  if (!gamescope.inGameMode()) return;
+  const g = CONFIG.gamescope;
+  if (g.steamDim && on) {
+    gamescope.steamDimming(false).then(() => { saveGamescope({ dimmedOff: true }); log.info('[gamescope] Steam\'s dimming off while this plays'); })
+      .catch((err) => log.warn(`[gamescope] couldn't turn Steam's dimming off: ${err.code || err.message}`));
+  } else if (!on && g.dimmedOff) steamDimmingBack();
+  if (g.person && on) pretendPerson.start(g.personHow);
+  else if (!on) pretendPerson.stop();
+}
+
 function playMpv(opts) {
   const ctl = player.play({
     ...opts,
+    onState: (st) => { if (opts.keepAwake) keepAwake(!st.paused); opts.onState(st); },
     onPadless: () => { padlessMpv = ctl; home?.webContents.send('pad:to-mpv', true); },
     onExit: (error) => {
+      keepAwake(false);
       if (padlessMpv === ctl) { padlessMpv = null; home?.webContents.send('pad:to-mpv', false); }
       opts.onExit(error);
     },
@@ -2880,7 +2965,8 @@ async function playQueue(queue, index, how, played) {
     token: null, // (per file, above)
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
-    help: mpvHelp().replace('episode', 'song'),
+    help: mpvHelp('song'),
+    ...mpvCommon(),
     loadingText: (i) => `Loading ${queue[i] ? queue[i].track.title : ''}…`,
     log, logFile: mpvLogFile(how),
     autoplay: true,
@@ -3202,7 +3288,8 @@ musicHandler('radio:play', async (list, index) => {
     token: null, // (no server's token ever goes to a radio station)
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
-    help: mpvHelp().replace(/·[^·]*skip[^·]*/, '').replace('episode', 'station'),
+    help: mpvHelp('station'),
+    ...mpvCommon(),
     loadingText: (i) => `Tuning in to ${stations[i] ? stations[i].name : ''}…`,
     log, logFile: mpvLogFile(how),
     autoplay: true,
@@ -3826,6 +3913,42 @@ function mpvLogFile(how) {
   return lastMpvLog;
 }
 
+// ---- Settings → Advanced → Gamescope fixes
+
+async function gamescopeState() {
+  return {
+    ...CONFIG.gamescope,
+    gameMode: gamescope.inGameMode(),
+    steamFound: gamescope.steamDirs().length > 0,
+    portFile: gamescope.flagOn(),
+    portOpen: await gamescope.steamPortOpen(),
+    decky: gamescope.hasDecky(),
+    python: Boolean(gamescope.PYTHON),
+    uinput: gamescope.uinputOk(),
+    plugin: await gamescope.deckyPlugin(),
+  };
+}
+ipcMain.handle('gamescope:state', async (event) => (fromHome(event) ? gamescopeState() : null));
+ipcMain.handle('gamescope:set', async (event, key, value) => {
+  if (!fromHome(event)) return null;
+  if (key === 'steamDim') {
+    const on = Boolean(value);
+    // On: Steam opens its debugging port from its next start (a file in Steam's folder). Off:
+    // closed again, if we opened it and Decky Loader doesn't need it.
+    if (on && !gamescope.flagOn()) { const r = gamescope.setFlag(true); if (r.ok) saveGamescope({ madePort: true }); }
+    if (!on && CONFIG.gamescope.madePort && !gamescope.hasDecky()) { gamescope.setFlag(false); saveGamescope({ madePort: false }); }
+    if (!on && CONFIG.gamescope.dimmedOff) await steamDimmingBack();
+    saveGamescope({ steamDim: on });
+  } else if (key === 'person') {
+    saveGamescope({ person: Boolean(value) });
+    if (!value) pretendPerson.stop();
+  } else if (key === 'personHow') {
+    saveGamescope({ personHow: value === 'keyboard' ? 'keyboard' : 'controller' });
+    if (pretendPerson.running) { pretendPerson.stop(); pretendPerson.start(CONFIG.gamescope.personHow); }
+  }
+  return gamescopeState();
+});
+
 // ---- Settings → Developer
 
 function developerState() {
@@ -3921,13 +4044,8 @@ function closeStreams(sess, channelId) {
 
 const hhmm = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-function liveHelp() {
-  const n = (a) => buttonName(CONFIG.mpvBindings[a]);
-  return `${n('prev')} ${n('next')} channel · ${n('skip')} what's on · ${n('pause')} pause · ${n('stop')} stop`;
-}
-
 // "5 · CNN — Now: Anderson Cooper 360 (until 9:00) · Next: 9:00 CNN Tonight"
-function sayOnNow(sess, ctl, i, { withHelp = false } = {}) {
+function sayOnNow(sess, ctl, i) {
   const c = findChannel(sess.chans[i] && sess.chans[i].id) || sess.chans[i];
   if (!c) return;
   const now = Date.now();
@@ -3936,8 +4054,7 @@ function sayOnNow(sess, ctl, i, { withHelp = false } = {}) {
   const lines = [`${c.number ? `${c.number} · ` : ''}${c.name}`];
   if (on) lines.push(`Now: ${on.title}${on.sub ? ` · ${on.sub}` : ''} (until ${hhmm(on.stop)})`);
   if (next) lines.push(`Next: ${hhmm(next.start)} ${next.title}`);
-  if (withHelp) lines.push('', liveHelp());
-  ctl.say(lines.join('\n'), withHelp ? 8000 : 5000);
+  ctl.say(lines.join('\n'), 5000);
 }
 
 async function playLive(ids, startId) {
@@ -3948,7 +4065,7 @@ async function playLive(ids, startId) {
   if (!chans.length) return { error: 'failed' };
   const port = await liveRedirector();
   const start = Math.max(0, chans.findIndex((c) => c.id === startId));
-  const sess = { chans, index: start, failed: new Map(), why: new Map(), used: new Map(), direct: new Map(), openStreams: [], lastActivity: Date.now(), asking: false, stopAskedAt: 0, shownHelp: false, askTimer: null };
+  const sess = { chans, index: start, failed: new Map(), why: new Map(), used: new Map(), direct: new Map(), openStreams: [], lastActivity: Date.now(), asking: false, stopAskedAt: 0, askTimer: null };
   liveSess = sess;
   stepAside('mpv');
   const ctl = playMpv({
@@ -3970,9 +4087,7 @@ async function playLive(ids, startId) {
     log, logFile: mpvLogFile(how),
     loadingText: (i) => `Tuning in to ${sess.chans[i] ? `${sess.chans[i].number ? `${sess.chans[i].number} · ` : ''}${sess.chans[i].name}` : 'the channel'}…`,
     onPlaying: (i) => {
-      const first = !sess.shownHelp;
-      sess.shownHelp = true;
-      sayOnNow(sess, ctl, i, { withHelp: first });
+      sayOnNow(sess, ctl, i);
       const c = sess.chans[i];
       // It works: remember that (and forget any "doesn't work" from an earlier check).
       for (const s of (findChannel(c.id) || c).sources) if (s.play && s.play.type === 'url' && liveHealth[s.play.url] && liveHealth[s.play.url].ok === false && (sess.failed.get(c.id) || 0) === (findChannel(c.id) || c).sources.indexOf(s)) liveHealth[s.play.url] = { ok: true, at: Date.now() };
@@ -3980,7 +4095,9 @@ async function playLive(ids, startId) {
     startIndex: start,
     token: null, // never send the Jellyfin token to other places
     bindings: CONFIG.mpvBindings,
-    help: '',
+    help: mpvHelp('live'),
+    ...mpvCommon(),
+    keepAwake: true,
     autoplay: true,
     onFileStart: (i) => {
       sess.index = i;
@@ -4156,6 +4273,12 @@ app.whenReady().then(async () => {
   // saw the defaults, so a path you'd set was forgotten every time the app restarted.)
   for (const [id, p] of Object.entries(CONFIG.appPaths || {})) if (p) apps.setCustomPath(id, p);
   log.setDebug(CONFIG.debugLog);
+  // The app quit while a film had Steam's dimming off: put it back (Steam may still be starting).
+  if (CONFIG.gamescope.dimmedOff) {
+    let tries = 0;
+    const again = () => steamDimmingBack().then(() => { if (CONFIG.gamescope.dimmedOff && ++tries < 6) setTimeout(again, 10000); });
+    setTimeout(again, 3000);
+  }
   refreshAudio();
   watchmode = createWatchmode({
     getKey: () => CONFIG.watchmodeKey, getRegion: () => CONFIG.region,
@@ -4218,4 +4341,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => app.quit());
-app.on('will-quit', () => phone.stop());
+app.on('will-quit', () => { phone.stop(); pretendPerson.stop(); });

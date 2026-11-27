@@ -165,6 +165,8 @@ if (location.protocol === 'file:') {
     setConvertAudio: (on) => ipcRenderer.invoke('audio:set-convert', Boolean(on)),
     devState: () => ipcRenderer.invoke('dev:state'),
     devDebug: (on) => ipcRenderer.invoke('dev:debug', Boolean(on)),
+    gamescopeState: () => ipcRenderer.invoke('gamescope:state'),
+    gamescopeSet: (key, value) => ipcRenderer.invoke('gamescope:set', String(key), value === true || value === false ? value : String(value)),
     devClear: () => ipcRenderer.invoke('dev:clear'),
     devPhoneLog: () => ipcRenderer.invoke('dev:phone-log'),
     onLivePlayed: listen('live:played'),

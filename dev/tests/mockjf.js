@@ -117,6 +117,11 @@ function start(port = 8096) {
           { Type: 'Intro', StartTicks: 5e7, EndTicks: 2e8 }, { Type: 'Outro', StartTicks: 5e8, EndTicks: 6e8 }] : [] });
       }
       if (p === '/Shows/NextUp') return json(200, { Items: [url.searchParams.get('seriesId') ? EPISODES['season-1'][1] : { ...EPISODES['season-2'][0], SeriesPrimaryImageTag: 'x' }] });
+      // A real video file to play, when a test gives one (JF_VIDEO_FILE).
+      if (/^\/Videos\/[^/]+\/stream$/.test(p) && process.env.JF_VIDEO_FILE) {
+        res.writeHead(200, { 'content-type': 'video/x-matroska' });
+        return require('fs').createReadStream(process.env.JF_VIDEO_FILE).pipe(res);
+      }
       if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(p))) return json(200, { PlaySessionId: 'play-1', MediaSources: [{ Id: 'ms-' + m[1], MediaStreams: [
         { Type: 'Video', Index: 0 }, { Type: 'Subtitle', Index: 3, IsExternal: true, Codec: 'srt' }, { Type: 'Subtitle', Index: 2, IsExternal: false, Codec: 'subrip' }] }] });
       if ((m = /^\/Items\/([^/]+)$/.exec(p))) { const it = ALL.find((i) => i.Id === m[1]); return it ? json(200, it) : json(404, {}); }

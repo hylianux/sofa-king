@@ -771,6 +771,32 @@
         <div class="qr" id="dev-qr-code"></div>
         <p class="fine" id="dev-qr-text"></p>
       </div>
+
+      <h2 class="section-title" data-group="Gamescope fixes">Advanced</h2>
+      <p class="lede">For Steam's Game Mode (gamescope), where the screen dims or the computer sleeps in the middle of a film. While a film, show or live channel plays, the app tells the computer someone's watching, the standard way. Desktops listen for that; Steam's Game Mode doesn't.</p>
+      <p class="status" id="gs-where"></p>
+      <p class="sub-label">The tidy fix: Decky Loader with the DeckyInhibitScreenSaver plugin</p>
+      <p class="fine">Decky Loader adds plugins to Steam's Game Mode. The DeckyInhibitScreenSaver plugin adds the listener Game Mode is missing, so the app's "someone's watching" is heard: Steam's dimming and sleep are off while a film plays, and back on after. Install Decky Loader from <strong>decky.xyz</strong> (in Desktop Mode), then the plugin from <strong>github.com/xfangfang/DeckyInhibitScreenSaver</strong> (its Releases page), and switch on its Background Monitor. If you use that, leave the two fixes below off.</p>
+      <div class="actions">
+        <button class="pill" data-nav id="gs-decky">Open decky.xyz</button>
+        <button class="pill" data-nav id="gs-plugin">Open the plugin's page</button>
+      </div>
+      <p class="sub-label">Or let the app do it (experimental)</p>
+      <button class="pill toggle" data-nav id="gs-steam">
+        <span>Turn Steam's dimming off while a film plays</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">What the plugin does, done by the app: while a picture plays, Steam's "dim after" and "sleep after" are set to never; when it stops or pauses, they go back to 5 and 10 minutes (Steam's usual times, not necessarily yours). To reach Steam's settings, the app opens Steam's debugging port, the way Decky Loader does; it opens the next time Steam starts, so restart Steam once. <strong>While that port is open, any program on this computer could control Steam, including your signed-in account.</strong> It also uses Steam's own internals, which a Steam update can change without warning.</p>
+      <p class="status none" id="gs-plugin-note" hidden></p>
+      <p class="status" id="gs-steam-status"></p>
+      <button class="pill toggle" data-nav id="gs-person">
+        <span>Pretend someone's using the controller</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <div class="actions" id="gs-person-how-row">
+        <button class="pill" data-nav id="gs-person-how">Pretends with: a controller</button>
+      </div>
+      <p class="fine">While a picture plays, a pretend controller nudges its right stick a hair every 30 seconds (too little to move anything), so Steam's idle timer sees someone there. Or a pretend keyboard taps F24, a key no program uses. Untested in Game Mode: which one Steam notices isn't known, so if one doesn't stop the dimming, try the other. Steam may show the pretend controller as a second controller while it's there. It goes when the film stops or pauses, and if the app closes.</p>
+      <p class="status none" id="gs-plugin-note2" hidden></p>
+      <p class="status" id="gs-person-status"></p>
     </div>
 
     <aside class="phone-panel" id="s-phone-panel" data-beside hidden>

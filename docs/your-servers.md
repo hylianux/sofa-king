@@ -16,7 +16,7 @@ Your servers show up all over the app:
 
 - **Jump back in** and **Up next** on Home.
 - **Library**, with everything on your server, A to Z.
-- On a title's page, a button for each server that has it, always first. Movies offer *Resume* or *Start over*; shows open their episodes.
+- On a title's page, a button for each server that has it, always first. Movies offer *Resume* or *Start over*; shows open their episodes. Titles are matched by their TMDB id, so your copy is found even when its name on the server differs from TMDB's ("Christmas Vacation" on the server, "National Lampoon's Christmas Vacation" on TMDB).
 
 Episodes with no proper name or description get them from TMDB.
 
@@ -37,7 +37,10 @@ A show plays as a playlist, so the next episode follows on.
 | L2 / R2 | Back / ahead 1 minute |
 | D-pad ◀ ▶ | Back 10 seconds / ahead 30 seconds |
 | D-pad ▲ ▼ | Volume |
-| Start | Show the time |
+| L3 (press the left stick) | Speakers: Automatic, Stereo, 5.1 or 7.1 (the one you pick is kept for next time) |
+| Start | Show the time and these buttons |
+
+**Forgot the buttons?** They show along the bottom when something starts playing, whenever you pause (until you carry on), and when you press Start.
 
 Change any of these in **Settings → Controller → In mpv**. Some mpv builds (Flathub's, for one) can't read a controller themselves; the app notices and passes your buttons on to mpv for you, so they work the same.
 

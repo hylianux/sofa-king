@@ -599,9 +599,46 @@ document.addEventListener('keydown', (e) => {
   const top = key.offsetTop;
   const line = [...key.parentElement.children].filter((k) => Math.abs(k.offsetTop - top) < 4);
   const i = line.indexOf(key);
-  if (e.key === 'ArrowRight' && i === line.length - 1) { e.preventDefault(); e.stopImmediatePropagation(); line[0].focus(); }
+  // At the end of a line, Right goes over to the results when there are some (to the one level
+  // with you); with none, it loops round to the start of the line.
+  if (e.key === 'ArrowRight' && i === line.length - 1 && resultsToEnter(key)) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    search.cameFrom = key;
+    resultsToEnter(key).focus();
+  } else if (e.key === 'ArrowRight' && i === line.length - 1) { e.preventDefault(); e.stopImmediatePropagation(); line[0].focus(); }
   else if (e.key === 'ArrowLeft' && i === 0) { e.preventDefault(); e.stopImmediatePropagation(); line[line.length - 1].focus(); }
   else return;
+  if (window.tvSound) window.tvSound('move');
+}, true);
+
+// The result to go to from the keyboard: in the first column, the one most level with the key
+// (of those in view).
+function resultsToEnter(key) {
+  const box = $('results');
+  const cards = [...box.querySelectorAll(':scope > [data-nav]')].filter((c) => c.offsetParent);
+  if (!cards.length) return null;
+  const left = Math.min(...cards.map((c) => c.getBoundingClientRect().left));
+  const b = box.getBoundingClientRect();
+  const first = cards.filter((c) => { const r = c.getBoundingClientRect(); return Math.abs(r.left - left) < 2 && r.bottom > b.top + 8 && r.top < b.bottom - 8; });
+  const k = key.getBoundingClientRect();
+  const mid = (k.top + k.bottom) / 2;
+  const dist = (c) => { const r = c.getBoundingClientRect(); return mid < r.top ? r.top - mid : mid > r.bottom ? mid - r.bottom : 0; };
+  return (first.length ? first : cards).sort((x, y) => dist(x) - dist(y))[0];
+}
+
+// Left from the first column of results goes back to the key you came over from, when it's still
+// level with you (otherwise to the key that is, as left always goes along the same line).
+document.addEventListener('keydown', (e) => {
+  if (screen !== 'search' || e.key !== 'ArrowLeft') return;
+  const card = document.activeElement && document.activeElement.closest('#results > [data-nav]');
+  const back = search.cameFrom;
+  if (!card || !back || !back.isConnected || !back.offsetParent) return;
+  const r = card.getBoundingClientRect();
+  const leftmost = ![...$('results').querySelectorAll(':scope > [data-nav]')].some((c) => { const x = c.getBoundingClientRect(); return x.right <= r.left + 1 && x.top < r.bottom - 1 && x.bottom > r.top + 1; });
+  const k = back.getBoundingClientRect();
+  if (!leftmost || !(k.top < r.bottom - 1 && k.bottom > r.top + 1)) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  back.focus();
   if (window.tvSound) window.tvSound('move');
 }, true);
 
@@ -1326,6 +1363,7 @@ async function openSettings(opts) {
     exact.focus();
   } else if (asked || !restoreSettingsPlace()) { if (!asked) setSettingsTab('general', { focus: false }); focusSettingsTab(); }
   refreshApps();
+  refreshGamescope();
   renderServers((await tv.jfList()).ok || []);
   await refreshSettings();
   await checkClipboard({ focus: !asked || asked === 'general' });
@@ -1983,13 +2021,60 @@ function stepStillWatching(dir) {
 $('sw-less').addEventListener('click', () => stepStillWatching(-1));
 $('sw-more').addEventListener('click', () => stepStillWatching(1));
 
+// ------------------------------------------------------------ settings: Advanced → Gamescope fixes
+
+function renderGamescope(g) {
+  if (!g) return;
+  $('gs-where').textContent = g.gameMode
+    ? 'You\'re in Steam\'s Game Mode now.'
+    : 'You\'re not in Steam\'s Game Mode now: these fixes only do anything there.';
+  $('gs-steam').classList.toggle('on', g.steamDim);
+  $('gs-person').classList.toggle('on', g.person);
+  $('gs-person-how').textContent = `Pretends with: ${g.personHow === 'keyboard' ? 'a keyboard' : 'a controller'}`;
+  $('gs-person-how-row').hidden = !g.person;
+  let steam = '';
+  if (!g.steamFound) steam = 'Steam isn\'t installed here (no Steam folder found).';
+  else if (g.steamDim) steam = g.portOpen ? 'Steam\'s debugging port is open: ready.' : 'Restart Steam once, so its debugging port opens.';
+  else if (g.portOpen) steam = g.decky ? 'Steam\'s debugging port is open (Decky Loader uses it).' : 'Steam\'s debugging port is open.';
+  $('gs-steam-status').textContent = steam;
+  $('gs-steam-status').hidden = !steam; // (an empty line would still show its dot)
+  let person = '';
+  if (!g.python) person = 'This needs Python 3, which isn\'t installed here.';
+  else if (!g.uinput) person = 'This computer doesn\'t let apps make pretend devices (/dev/uinput). Installing Steam usually allows it.';
+  $('gs-person-status').textContent = person;
+  $('gs-person-status').hidden = !person;
+  // The plugin already does this: say so on both fixes.
+  const pl = g.plugin || {};
+  let found = '';
+  if (pl.listening || (pl.installed && !pl.disabled && pl.monitor)) {
+    found = `The DeckyInhibitScreenSaver plugin ${pl.listening ? 'is running' : 'is installed and switched on'} here, so turning this on is unnecessary.`;
+  } else if (pl.installed) {
+    found = `The DeckyInhibitScreenSaver plugin is installed here, but ${pl.disabled ? 'switched off in Decky' : 'its Background Monitor is off'}. Switching that on is the better fix.`;
+  }
+  $('gs-plugin-note').textContent = found;
+  $('gs-plugin-note').hidden = !found;
+  $('gs-plugin-note2').textContent = found;
+  $('gs-plugin-note2').hidden = !found;
+}
+async function refreshGamescope() { renderGamescope(await tv.gamescopeState()); }
+$('gs-decky').addEventListener('click', () => tv.open('decky'));
+$('gs-plugin').addEventListener('click', () => tv.open('decky-inhibit'));
+$('gs-steam').addEventListener('click', async () => renderGamescope(await tv.gamescopeSet('steamDim', !$('gs-steam').classList.contains('on'))));
+$('gs-person').addEventListener('click', async () => renderGamescope(await tv.gamescopeSet('person', !$('gs-person').classList.contains('on'))));
+$('gs-person-how').addEventListener('click', async () => {
+  const now = /keyboard/.test($('gs-person-how').textContent) ? 'keyboard' : 'controller';
+  renderGamescope(await tv.gamescopeSet('personHow', now === 'keyboard' ? 'controller' : 'keyboard'));
+});
+refreshGamescope();
+
 // ------------------------------------------------------------ settings: mpv buttons
 
 const MPV_ACTIONS = [
   ['pause', 'Pause / play'], ['stop', 'Stop, back to the app'], ['skip', 'Skip intro / credits'],
   ['prev', 'Previous episode'], ['next', 'Next episode'], ['subs', 'Next subtitle track'], ['audio', 'Next audio track'],
   ['back10', 'Back 10 seconds'], ['fwd30', 'Ahead 30 seconds'], ['back60', 'Back 1 minute'], ['fwd60', 'Ahead 1 minute'],
-  ['volup', 'Volume up'], ['voldown', 'Volume down'], ['time', 'Show the time'],
+  ['volup', 'Volume up'], ['voldown', 'Volume down'], ['sound', 'Speakers: automatic, stereo, 5.1, 7.1'],
+  ['time', 'Show the time and the buttons'],
 ];
 const mpvName = Object.fromEntries(MPV_ACTIONS);
 let mpvBindings = {};
@@ -2924,6 +3009,7 @@ const SETTINGS_TABS = [
   { id: 'youtube', name: 'YouTube', sections: ['YouTube'] },
   { id: 'apps', name: 'Apps', sections: ['Apps'] },
   { id: 'controller', name: 'Controller', sections: ['Controller'] },
+  { id: 'advanced', name: 'Advanced', sections: ['Advanced'], menu: true }, // (menu: the section menu shows even with one section)
   { id: 'developer', name: 'Developer', sections: ['Developer'] },
 ];
 let settingsTab = 'general';
@@ -2987,9 +3073,11 @@ const settingsGroup = {}; // tab -> the section showing in it
     }
     const body = el('div', { class: 's-groups' }, ...real);
     panels[t.id].append(rail, body);
-    panels[t.id].classList.toggle('single', real.length < 2);
-    // A tab with only one section has no menu beside it: up from the top goes to the tabs.
-    if (real.length < 2) for (const g of real) delete g.dataset.zone;
+    // A tab with only one section has no menu beside it (unless it asks for one, so it looks like
+    // the others): up from the top goes to the tabs.
+    const single = real.length < 2 && !t.menu;
+    panels[t.id].classList.toggle('single', single);
+    if (single) for (const g of real) delete g.dataset.zone;
     if (real[0]) showSettingsGroup(real[0], { quiet: true });
   }
   h1.after(bar, ...Object.values(panels));
@@ -4058,12 +4146,13 @@ function scrollRowsTo(from, to) {
   requestAnimationFrame(step);
 }
 
-// The Genres grid and All genres: moving up or down glides the tiles into place (eased, a little
-// slower than the rows), instead of the jump the browser makes. Holding the D-pad keeps it flowing:
-// each move starts from wherever the last one had got to. A tile at the top of its group brings
-// the group's name into view with it; the first and last rows go all the way to the ends.
+// The Genres grid, All genres, the Library, a genre's (or any row's) whole list, and search
+// results: moving up or down glides the tiles into place (eased, a little slower than the rows),
+// instead of the jump the browser makes. Holding the D-pad keeps it flowing: each move starts
+// from wherever the last one had got to. A tile at the top of its group brings the group's name
+// into view with it; the first and last rows go all the way to the ends.
 const GLIDE_MS = 280;
-const glideBoxes = () => [$('genre-grid'), $('allgenres-body')];
+const glideBoxes = () => [$('genre-grid'), $('allgenres-body'), $('lib-grid'), $('more-grid'), $('results')];
 for (const box of glideBoxes()) box.dataset.ownScroll = ''; // (nav's "show the ends" jump stays out)
 let glideBefore = null;
 document.addEventListener('keydown', (e) => {
@@ -4075,7 +4164,7 @@ const glides = new WeakMap();
 for (const box of glideBoxes()) {
   box.addEventListener('focusin', (e) => {
     const tile = e.target.closest('.genre, button');
-    if (!tile) return;
+    if (!tile || !box.contains(tile)) return;
     const from = glideBefore && glideBefore.box === box ? glideBefore.top : null;
     glideBefore = null;
     if (from == null) return; // (not an up/down move: leave it be)
@@ -4086,10 +4175,16 @@ for (const box of glideBoxes()) {
       // The top edge to show: the group's name too, when the tile is in its group's first line.
       const group = tile.closest('.genre-group');
       const firstLine = group && Math.abs(t.top - group.querySelector('.genre').getBoundingClientRect().top) < 2;
-      const topEdge = (firstLine ? group.getBoundingClientRect().top : t.top - margin) - r.top + box.scrollTop;
+      // (Or the heading over the tile's line: a letter in the Library, Artists or Albums in music search.)
+      let head = null;
+      for (let x = tile.previousElementSibling; x; x = x.previousElementSibling) {
+        if (x.matches('.letter-head, .results-head')) { head = x; break; }
+        if (x.getBoundingClientRect().top < t.top - 2) break; // a line further up: no heading over this one
+      }
+      const topEdge = (firstLine ? group.getBoundingClientRect().top : head ? head.getBoundingClientRect().top - margin * 0.3 : t.top - margin) - r.top + box.scrollTop;
       const bottomEdge = t.bottom + margin - r.top + box.scrollTop;
       const max = box.scrollHeight - box.clientHeight;
-      const tiles = [...box.querySelectorAll('.genre, .genre-grid > button')];
+      const tiles = [...box.querySelectorAll('.genre, .genre-grid > button, :scope > .card')];
       let target = box.scrollTop;
       if (Math.abs(t.top - tiles[0].getBoundingClientRect().top) < 2) target = 0;
       else if (Math.abs(t.top - tiles[tiles.length - 1].getBoundingClientRect().top) < 2) target = max;

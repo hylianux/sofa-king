@@ -140,6 +140,25 @@ function createPlex({ clientId, version, log = { debug() {} } }) {
     return (mc(r).Directory || []).filter((d) => !type || d.type === type);
   }
 
+  // Which TMDB ids each server has, for titles a name search can't find (your copy's name can
+  // differ from TMDB's). Read the first time it's needed, kept for half an hour.
+  const ID_INDEX_AGE = 30 * 60 * 1000;
+  const idIndexes = new Map(); // server id + kind -> { at, ready: Promise<Map(tmdbId -> item)> }
+  function idIndex(server, type, libs) {
+    const key = `${server.id}:${type}`;
+    const have = idIndexes.get(key);
+    if (have && Date.now() - have.at < ID_INDEX_AGE) return have.ready;
+    const ready = Promise.all(libs.map((d) => get(server, `/library/sections/${d.key}/all`, { type: type === 'show' ? '2' : '1', includeGuids: '1' })))
+      .then((all) => {
+        const map = new Map();
+        for (const r of all) for (const it of mc(r).Metadata || []) { const id = tmdbOf(it); if (id) map.set(id, it); }
+        return map;
+      });
+    idIndexes.set(key, { at: Date.now(), ready });
+    ready.catch(() => idIndexes.delete(key)); // (try again next time)
+    return ready;
+  }
+
   // Is this TMDB title on this server? The TMDB id, or failing that name + year.
   async function findOn(server, { kind, tmdbId, title, year }) {
     const type = kind === 'tv' ? 'show' : 'movie';
@@ -149,8 +168,9 @@ function createPlex({ clientId, version, log = { debug() {} } }) {
       const r = await get(server, `/library/sections/${d.key}/all`, { type: type === 'show' ? '2' : '1', title, includeGuids: '1' }).catch(() => null);
       found.push(...(mc(r).Metadata || []));
     }));
-    const hit = found.find((it) => tmdbId && tmdbOf(it) === Number(tmdbId)) ||
-      found.find((it) => simplify(it.title) === simplify(title) && (!year || !it.year || String(it.year) === String(year)));
+    let hit = found.find((it) => tmdbId && tmdbOf(it) === Number(tmdbId));
+    if (!hit && tmdbId && libs.length) hit = (await idIndex(server, type, libs).catch(() => new Map())).get(Number(tmdbId));
+    if (!hit) hit = found.find((it) => simplify(it.title) === simplify(title) && (!year || !it.year || String(it.year) === String(year)));
     return hit ? { serverId: server.id, serverName: server.name, itemId: String(hit.ratingKey), itemType: TYPE[hit.type], name: hit.title } : null;
   }
   async function find(list, item) {
