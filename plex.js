@@ -129,6 +129,7 @@ function createPlex({ clientId, version, log = { debug() {} } }) {
       year: it.year || null,
       sortName: it.titleSort || it.title || '',
       tmdbId: tmdbOf(it),
+      imdbId: ((it.Guid || []).map((g) => /^imdb:\/\/(tt\d+)/.exec(g.id || '')).find(Boolean) || [])[1] || null,
       // Which item's picture: a show's for its episodes.
       poster: ep ? (it.grandparentRatingKey ? String(it.grandparentRatingKey) : null) : String(it.ratingKey),
       partKey: part ? part.key : null,
@@ -368,7 +369,7 @@ function createPlex({ clientId, version, log = { debug() {} } }) {
       const r = await get(server, `/library/sections/${d.key}/all`, { type: '10', title, 'X-Plex-Container-Start': '0', 'X-Plex-Container-Size': String(limit) }).catch(() => null);
       for (const t of mc(r).Metadata || []) {
         const part = t.Media && t.Media[0] && t.Media[0].Part && t.Media[0].Part[0];
-        if (part) out.push({ id: String(t.ratingKey), title: t.title || '', artist: t.originalTitle || t.grandparentTitle || '', album: t.parentTitle || '', seconds: Math.round((t.duration || 0) / MS), url: `${server.url}${part.key}` });
+        if (part) out.push({ id: String(t.ratingKey), title: t.title || '', artist: t.originalTitle || t.grandparentTitle || '', album: t.parentTitle || '', seconds: Math.round((t.duration || 0) / MS), url: `${server.url}${part.key}`, cover: t.parentRatingKey ? `jfimg://${encodeURIComponent(server.id)}/Items/${encodeURIComponent(t.parentRatingKey)}/Images/Primary` : '' });
       }
     }));
     return out;

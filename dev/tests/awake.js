@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
   say('play:', JSON.stringify(await js("tv.jfPlay('srv-living-room', 'item-other', 'Movie', 'Arrival', false)")));
   await wait(5000);
   say('playing:', seen(), calls.at(-1) === 'Inhibit' ? 'PASS' : 'FAIL');
-  await mpv(['set_property', 'pause', true]); await wait(1000);
+  await mpv(['set_property', 'pause', true]); await wait(5000); // (the screen may dim once it's been paused a few seconds)
   say('paused:', seen(), calls.at(-1) === 'UnInhibit' ? 'PASS' : 'FAIL');
   await mpv(['set_property', 'pause', false]); await wait(1500);
   say('carried on:', seen(), calls.at(-1) === 'Inhibit' ? 'PASS' : 'FAIL');

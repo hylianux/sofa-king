@@ -10,6 +10,8 @@ const os = require('os');
 const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
+const visuals = require('./visuals');
+const { createControls } = require('./mpvcontrols');
 
 // Standard gamepad button numbers -> mpv's names for them.
 const MPV_BUTTON = {
@@ -36,6 +38,7 @@ const MPV_COMMANDS = {
   voldown: 'add volume -5',
   time: 'show-progress; script-message tv-overlay-help', // the time, and the buttons along the bottom
   sound: 'script-message tv-overlay-sound', // speakers: automatic, stereo, 5.1, 7.1
+  visual: 'script-message tv-overlay-visual', // music and radio: the next picture (visualiser)
 };
 
 // The speaker layouts the sound button steps through (mpv's audio-channels).
@@ -68,10 +71,15 @@ function canGamepad(how) {
   return gamepadSupport.get(key);
 }
 
-function inputConf(bindings) {
+// How far each skip button goes, in seconds (Settings → Servers → When playing in mpv).
+const SEEK_DEFAULTS = { back10: 10, fwd30: 30, back60: 60, fwd60: 60 };
+const SEEK_STEPS = [5, 10, 15, 20, 30, 45, 60, 120, 300, 600];
+const seekCommand = (action, secs) => `seek ${action.startsWith('back') ? '-' : ''}${secs}`;
+
+function inputConf(bindings, seeks = {}) {
   return Object.entries(bindings)
     .filter(([action, b]) => MPV_COMMANDS[action] && MPV_BUTTON[b])
-    .map(([action, b]) => `${MPV_BUTTON[b]} ${MPV_COMMANDS[action]}`)
+    .map(([action, b]) => `${MPV_BUTTON[b]} ${action in SEEK_DEFAULTS ? seekCommand(action, SEEK_STEPS.includes(seeks[action]) ? seeks[action] : SEEK_DEFAULTS[action]) : MPV_COMMANDS[action]}`)
     .join('\n') + '\n';
 }
 
@@ -83,30 +91,13 @@ function sharedDir(via) {
   return dir;
 }
 
-// Text inside mpv's styled messages: braces and backslashes would be read as styling.
-const escapeAss = (s) => String(s).replace(/\\/g, '\\\\').replace(/[{}]/g, (c) => `\\${c}`);
+const { escapeAss, roundRect, alpha, capWidth } = require('./osd');
 
 // ------------------------------------------------------------------ the buttons along the bottom
 //
 // A panel drawn with mpv's osd-overlay (shapes and styled text on a 1280×720 canvas): each button
 // as a keycap with what it does beside it, four to a line, and how to bring it back underneath.
 // items: [{ keys: ['A'], label: 'Pause' }]. k: 0..1, how far it has faded in.
-
-// A rounded rectangle, as an ASS drawing.
-function roundRect(x, y, w, h, r) {
-  const R = (n) => Math.round(n);
-  return `m ${R(x + r)} ${R(y)} l ${R(x + w - r)} ${R(y)} b ${R(x + w)} ${R(y)} ${R(x + w)} ${R(y)} ${R(x + w)} ${R(y + r)} ` +
-    `l ${R(x + w)} ${R(y + h - r)} b ${R(x + w)} ${R(y + h)} ${R(x + w)} ${R(y + h)} ${R(x + w - r)} ${R(y + h)} ` +
-    `l ${R(x + r)} ${R(y + h)} b ${R(x)} ${R(y + h)} ${R(x)} ${R(y + h)} ${R(x)} ${R(y + h - r)} ` +
-    `l ${R(x)} ${R(y + r)} b ${R(x)} ${R(y)} ${R(x)} ${R(y)} ${R(x + r)} ${R(y)}`;
-}
-// An ASS alpha (00 solid, FF invisible), part-way faded in.
-const alpha = (base, k) => {
-  const a = Math.round(255 - (255 - base) * k);
-  return `&H${a.toString(16).padStart(2, '0').toUpperCase()}&`;
-};
-// Roughly how wide a keycap's name is, so the caps fit their names (ASS can't measure text).
-const capWidth = (name) => Math.max(34, 18 + [...name].reduce((w, ch) => w + (/[▲▼◀▶]/.test(ch) ? 13 : /[A-Z0-9]/.test(ch) ? 11.5 : 9.5), 0));
 
 function helpPanel(items, footer, k) {
   const COLS = 4;
@@ -153,9 +144,11 @@ function connect(socketPath, onMessage, watch = []) {
   const queue = [];
 
   const waiting = new Map(); // request id -> resolve, for ask()
+  // (A command as text, as in input.conf, is sent as a plain line: mpv reads it the same way, with
+  // ${property} filled in. Those get no answer.)
   const send = (command) => {
     const id = nextId++;
-    const line = JSON.stringify({ command, request_id: id }) + '\n';
+    const line = typeof command === 'string' ? `${command.replace(/[\r\n]/g, ' ')}\n` : JSON.stringify({ command, request_id: id }) + '\n';
     if (sock) sock.write(line); else queue.push(line);
     return id;
   };
@@ -214,15 +207,24 @@ function connect(socketPath, onMessage, watch = []) {
 //   onPadless()                        this mpv can't read the controller: the app should pass
 //                                      buttons on with press() while it plays (optional)
 //   onSound(value)                     the speaker layout was changed with the sound button (optional)
+//   onVisual(id)                       the picture for music was changed with its button (optional)
 // help: [{ keys: ['A'], label: 'Pause' }] for the panel of buttons, helpFooter: the line under it.
 // sound: the speaker layout to start with ('auto-safe', 'stereo', '5.1', '7.1').
 // motion: false when Animations are off (the panels appear and go without fading).
-function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help = [], helpFooter = '', sound = 'auto-safe', motion = true, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, onPadless, onSound, loadingText, logFile, log }) {
+// seeks: { back10, fwd30, back60, fwd60 } seconds for the skip buttons. rewindOnResume: after a
+// pause, carry on from a second earlier.
+// kind: 'video', 'live', 'song' or 'station' (what the menu offers). links(index): a promise of the
+// title's pages [{ name, url }] for the menu's QR codes (films and shows). appPad: the app reads the
+// controller and drives mpv (the menu, the hold buttons); false lets mpv read it itself, if it can.
+// volume: mpv's volume to start at (0–130; null: mpv's own). onVolume(v): it changed (to keep).
+// visual: for music and radio, the picture to show (visuals.js: 'cover', 'bars', … 'off'); null
+// for films. cover(index): a promise of the cover picture's path on disk for that entry, or null.
+function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help = [], helpFooter = '', sound = 'auto-safe', motion = true, seeks, rewindOnResume = false, visual = null, cover, kind = 'video', links, appPad = true, volume = null, onVolume, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, onPadless, onSound, onVisual, loadingText, logFile, log }) {
   const dir = sharedDir(how.via);
   const id = `tv-overlay-${process.pid}-${Date.now()}`;
   const socketPath = path.join(dir, `${id}.sock`);
   const confPath = path.join(dir, 'tv-overlay-input.conf');
-  fs.writeFileSync(confPath, inputConf(bindings));
+  fs.writeFileSync(confPath, inputConf(bindings, seeks));
 
   const files = [];
   entries.forEach((e) => {
@@ -244,6 +246,8 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     // Jellyfin needs its token on every request; live channels from other places must not get it.
     ...(token ? [`--http-header-fields=${tokenHeader}: ${token}`] : []),
     ...(SOUND_CHOICES.some((c) => c.value === sound) && sound !== 'auto-safe' ? [`--audio-channels=${sound}`] : []),
+    ...(Number.isFinite(volume) && volume >= 0 && volume <= 130 ? [`--volume=${Math.round(volume)}`] : []),
+    // (Music: the picture is there from the start; see visualStart below.)
     `--playlist-start=${startIndex}`,
     // Autoplay off: stop (paused) at the end of each episode instead of moving on.
     ...(autoplay ? [] : ['--keep-open=always']),
@@ -264,10 +268,17 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
         const was = state.paused;
         state.paused = Boolean(msg.data);
         // Paused: the buttons show (and stay until you carry on), so they're easy to look up.
-        if (state.paused && !was && loadedOnce) showHelp(0);
-        else if (!state.paused && was) hideHelp();
+        if (controls) controls.refresh();
+        if (state.paused && !was && loadedOnce && (!controls || controls.mode === 'normal')) showHelp(0);
+        else if (!state.paused && was) {
+          hideHelp();
+          // (A second back, so you don't miss the words you paused on.)
+          if (rewindOnResume) ipc.send(['seek', -1, 'relative+exact']);
+        }
       }
       else if (msg.name === 'duration' && typeof msg.data === 'number') state.duration = msg.data;
+      else if (msg.name === 'volume') { if (typeof msg.data === 'number' && onVolume) onVolume(Math.round(msg.data)); return; }
+      else if (msg.name === 'media-title') { state.title = typeof msg.data === 'string' ? msg.data : ''; return; }
       else if (msg.name === 'height') state.height = typeof msg.data === 'number' ? msg.data : null;
       else if (msg.name === 'metadata') { if (onMetadata) onMetadata(msg.data && typeof msg.data === 'object' ? msg.data : {}); return; }
       else if (msg.name === 'playlist-pos' && typeof msg.data === 'number' && msg.data >= 0) {
@@ -279,6 +290,7 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
           state.position = null;
           state.duration = null;
           startLoading(current);
+          visualFile(current);
           onFileStart(current);
         }
         return;
@@ -296,15 +308,17 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
       const args = msg.args || [];
       if (args[0] === 'tv-overlay-help') return showHelp(state.paused ? 0 : HELP_MS);
       if (args[0] === 'tv-overlay-sound') return nextSound();
+      if (args[0] === 'tv-overlay-visual') return nextVisual();
       onMessage(args);
     } else if (msg.event === 'file-loaded') {
       // The stream is open: pictures are about to appear.
       stopLoading();
       // The first time, the buttons show for a few seconds.
       if (!loadedOnce) { loadedOnce = true; showHelp(HELP_MS); }
+      visualLoaded(current);
       if (current != null && onPlaying) onPlaying(current);
     }
-  }, onMetadata ? ['metadata'] : []);
+  }, ['media-title', 'volume', ...(onMetadata ? ['metadata'] : [])]);
 
   // While a file (or a live channel) is opening, a little animation, so you know it's coming.
   // Drawn with mpv's osd-overlay (styled text straight to the screen). show-text can't be used for
@@ -379,9 +393,12 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
 
   // ---- speakers: the sound button steps through automatic, stereo, 5.1 and 7.1
   let soundNow = SOUND_CHOICES.some((c) => c.value === sound) ? sound : 'auto-safe';
-  async function nextSound() {
+  function nextSound() {
     const i = SOUND_CHOICES.findIndex((c) => c.value === soundNow);
-    soundNow = SOUND_CHOICES[(i + 1) % SOUND_CHOICES.length].value;
+    setSound(SOUND_CHOICES[(i + 1) % SOUND_CHOICES.length].value);
+  }
+  async function setSound(value) {
+    soundNow = value;
     ipc.send(['set_property', 'audio-channels', soundNow]);
     if (onSound) onSound(soundNow);
     // Say what the title itself has, so "5.1" on a stereo film isn't a puzzle.
@@ -393,16 +410,125 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     showPanel(TOAST_ID, (k) => toastPanel(lines, k), 3000);
   }
 
+  // ---- pictures for music: a visualiser (or the cover) drawn from the sound, by mpv itself
+  // (visuals.js). Each file gets its cover when it arrives; a file with real pictures of its own
+  // (a music video) is left alone.
+  let visualNow = visual && visuals.visualIds.includes(visual) ? visual : null;
+  const covers = new Map(); // entry index -> path or null
+  let graphNow = '';
+  let hasVideo = false; // this file has its own moving pictures
+  let loadedFile = null;
+  const coverWait = new Map(); // entry index -> promise of the above
+  function visualFile(i) {
+    hasVideo = false;
+    loadedFile = null;
+    if (!visualNow || !cover || coverWait.has(i)) return;
+    coverWait.set(i, Promise.resolve().then(() => cover(i)).catch(() => null).then((p) => {
+      covers.set(i, p || null);
+      if (loadedFile === i && graphNow !== visuals.graphFor(visualNow, p)) applyVisual(); // (a late cover)
+    }));
+  }
+  async function visualLoaded(i) {
+    if (!visualNow) return;
+    const tracks = await ipc.ask(['get_property', 'track-list']);
+    hasVideo = Array.isArray(tracks) && tracks.some((t) => t.type === 'video' && !t.albumart && !t.image);
+    // Wait a moment for the cover, so the picture is set up once rather than twice (each change
+    // makes mpv catch its breath for a moment).
+    if (coverWait.has(i)) await Promise.race([coverWait.get(i), new Promise((r) => setTimeout(r, 2500))]);
+    loadedFile = i;
+    applyVisual();
+  }
+  function applyVisual() {
+    if (finished || !visualNow || loadedFile == null) return;
+    const path = covers.get(loadedFile) || null;
+    const graph = hasVideo ? '' : visuals.graphFor(visualNow, path);
+    redrawCard();
+    if (graph === graphNow) return;
+    if (log) log.debug(`[mpv] picture: ${hasVideo ? 'the file\'s own' : visualNow}${path ? ' with its cover' : ''}`);
+    graphNow = graph;
+    ipc.send(['set_property', 'lavfi-complex', graph]);
+    // (Clearing it leaves mpv with no sound track chosen: choose it again, and the file's own
+    // picture, if it has one.)
+    if (!graph) { ipc.send(['set_property', 'aid', 1]); ipc.send(['set_property', 'vid', 'auto']); }
+  }
+  function nextVisual() {
+    if (visualNow) setVisual(visuals.nextVisual(visualNow));
+  }
+  function setVisual(id) {
+    if (!visualNow || !visuals.visualIds.includes(id)) return;
+    visualNow = id;
+    if (onVisual) onVisual(visualNow);
+    applyVisual();
+    showPanel(TOAST_ID, (k) => toastPanel([`Picture: ${visuals.visualName(visualNow)}`], k), 2500);
+  }
+
+  // ---- the card: what's playing (a station and its song, or a song, its artist and album). Where
+  // it goes depends on the picture: beside a big cover, in the top-left corner over a visualiser,
+  // or in the middle.
+  const CARD_ID = 62;
+  let cardLines = null;
+  function redrawCard() {
+    if (!cardLines || !cardLines.length) { ipc.send({ name: 'osd-overlay', id: CARD_ID, format: 'none', data: '' }); return; }
+    const spot = visualNow && !hasVideo ? visuals.cardSpot(visualNow, Boolean(loadedFile != null && covers.get(loadedFile))) : 'middle';
+    const [first, ...rest] = cardLines;
+    const at = { beside: '{\\an4\\pos(660,360)}', corner: '{\\an7\\pos(56,44)}', middle: '{\\an5\\pos(640,360)}' }[spot];
+    const big = spot === 'corner' ? 34 : 46;
+    const lines = rest.filter(Boolean).map((l, i) => `\\N{\\fs${i ? (spot === 'corner' ? 18 : 22) : (spot === 'corner' ? 24 : 30)}}{\\alpha&H${i ? '60' : '10'}&}${escapeAss(l)}`).join('');
+    ipc.send({ name: 'osd-overlay', id: CARD_ID, format: 'ass-events', res_x: 1280, res_y: 720,
+      data: `${at}{\\bord1.2}{\\3c&H000000&}{\\3a&H90&}{\\shad0}{\\fs${big}}${escapeAss(first)}${lines}` });
+  }
+
+  // ---- the controller, read by the app: plain presses, the hold buttons, and the menu (mpvcontrols.js)
+  const controls = appPad ? createControls({
+    send: (cmd) => ipc.send(cmd),
+    ask: (cmd) => ipc.ask(cmd),
+    state,
+    kind,
+    bindings,
+    seeks: { ...SEEK_DEFAULTS, ...Object.fromEntries(Object.entries(seeks || {}).filter(([, v]) => SEEK_STEPS.includes(v))) },
+    command: (action) => (action in SEEK_DEFAULTS
+      ? seekCommand(action, SEEK_STEPS.includes((seeks || {})[action]) ? seeks[action] : SEEK_DEFAULTS[action])
+      : MPV_COMMANDS[action] || null),
+    run: (action) => {
+      if (action === 'help') showHelp(state.paused ? 0 : HELP_MS);
+      else if (action === 'sound') nextSound();
+      else if (action === 'visual') nextVisual();
+      else onMessage([`tv-overlay-${action}`]); // stop, skip: the app decides
+    },
+    sounds: SOUND_CHOICES,
+    sound: () => soundNow,
+    setSound,
+    visuals: visualNow ? visuals.VISUALS.map((v) => ({ id: v.id, name: v.name })) : null,
+    visual: () => visualNow,
+    setVisual,
+    links: links ? () => links(current != null ? current : state.index) : null,
+    hideHelp,
+    title: () => state.title || '',
+  }) : null;
+
   let finished = false;
   let child = null;
-  canGamepad(how).then((pad) => {
+  // Music: mpv starts with its picture already set, with the first cover if it comes quickly. (On
+  // a radio stream, adding a picture once it's playing freezes the sound; changing one is fine.)
+  async function visualStart() {
+    if (!visualNow) return;
+    let p = null;
+    if (cover) {
+      p = await Promise.race([Promise.resolve().then(() => cover(startIndex)).catch(() => null), new Promise((r) => setTimeout(() => r(undefined), 2500))]);
+      if (p !== undefined) { covers.set(startIndex, p || null); coverWait.set(startIndex, Promise.resolve()); }
+    }
+    graphNow = visuals.graphFor(visualNow, p || null);
+    args.splice(args.indexOf(`--playlist-start=${startIndex}`), 0, `--lavfi-complex=${graphNow}`);
+  }
+  Promise.all([controls ? true : canGamepad(how), visualStart()]).then(([pad]) => {
     if (finished) return;
-    if (pad) args.splice(how.args.length, 0, '--input-gamepad=yes');
+    if (controls) { if (onPadless) onPadless(); } // (the app reads the controller and drives mpv)
+    else if (pad) args.splice(how.args.length, 0, '--input-gamepad=yes');
     else { if (log) log.debug('[mpv] this mpv can\'t read the controller itself: the app passes buttons on'); if (onPadless) onPadless(); }
     start();
   });
   function start() {
-  if (log) log.debug('[mpv] starting:', how.cmd, args.filter((a) => !a.startsWith('--http-header-fields')).join(' '));
+  if (log) log.debug('[mpv] starting:', how.cmd, args.filter((a) => !a.startsWith('--http-header-fields')).map((a) => (a.startsWith('--lavfi-complex=') ? '--lavfi-complex=(the picture)' : a)).join(' '));
   child = spawn(how.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: require('./apps').cleanEnv() });
   // What mpv (or Flatpak) prints, the last few lines kept: when it quits without playing anything,
   // that's the only clue why, so it goes in the log. (Long codes hidden, like the relay's.)
@@ -428,6 +554,7 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     finished = true;
     clearInterval(spin);
     for (const p of panels.values()) { clearInterval(p.anim); clearTimeout(p.hide); }
+    if (controls) controls.stop();
     if (current != null) onFileEnd(current, 'quit', state.position, state.duration);
     current = null;
     ipc.close();
@@ -440,17 +567,18 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     // A controller button (standard number), passed on as if mpv had read it itself: its own
     // bindings (Settings → Controller → In mpv) decide what it does. For an mpv that can't read
     // the controller.
-    press: (button) => { if (MPV_BUTTON[button]) ipc.send(['keypress', MPV_BUTTON[button]]); },
+    // phase: 'down', 'repeat' (held D-pad) or 'up'.
+    press: (button, phase = 'down') => {
+      if (controls) controls.input(button, phase);
+      else if (phase !== 'up' && MPV_BUTTON[button]) ipc.send(['keypress', MPV_BUTTON[button]]);
+    },
     // Closing it from the app (if it never started, there's nothing to close).
     get running() { return Boolean(child) && !finished; },
     say: (text, ms = 4000) => ipc.send(['show-text', text, ms]),
-    // A card that stays on screen (for radio, where there's no picture): a big first line, smaller
-    // ones under it. Empty clears it.
-    card: (lines) => ipc.send(lines && lines.length
-      ? { name: 'osd-overlay', id: 62, format: 'ass-events', res_x: 1280, res_y: 720,
-        data: `{\\an5}{\\bord0}{\\shad0}{\\fs46}${escapeAss(lines[0])}${lines.slice(1).filter(Boolean).map((l, i) => `\\N{\\fs${i ? 22 : 30}}{\\alpha&H${i ? '60' : '10'}&}${escapeAss(l)}`).join('')}` }
-      : { name: 'osd-overlay', id: 62, format: 'none', data: '' }),
+    // A card that stays on screen (for music and radio): a big first line, smaller ones under it.
+    // Empty clears it.
+    card: (lines) => { cardLines = lines && lines.length ? lines : null; redrawCard(); },
   };
 }
 
-module.exports = { play, canGamepad, MPV_COMMANDS, MPV_BUTTON, SOUND_CHOICES, sharedDir, helpPanel, toastPanel };
+module.exports = { play, canGamepad, MPV_COMMANDS, MPV_BUTTON, SOUND_CHOICES, SEEK_DEFAULTS, SEEK_STEPS, inputConf, sharedDir, helpPanel, toastPanel };

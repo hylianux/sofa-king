@@ -45,8 +45,9 @@ const hasDecky = () => fs.existsSync(path.join(os.homedir(), 'homebrew', 'servic
 // Is the DeckyInhibitScreenSaver plugin here, switched on, and running? (Then the app's own fix
 // isn't needed.) installed: its folder in Decky's plugins (plugin.json: "ScreenSaver" by
 // xfangfang); disabled: Decky lists it as switched off; monitor: its Background Monitor setting
-// (on unless switched off); listening: in Game Mode, something answers the standard "don't dim"
-// request (Game Mode has nothing of its own, so that's the plugin, or something like it).
+// (on unless switched off); listener: in Game Mode, the program answering the standard "don't
+// dim" request, if any ({ name }; it isn't necessarily the plugin: other things can answer too,
+// so only the plugin's folder says the plugin is here).
 const execFileP = (cmd, args) => new Promise((resolve) => {
   require('child_process').execFile(cmd, args, { timeout: 3000 }, (err, stdout) => resolve(err ? null : String(stdout)));
 });
@@ -64,12 +65,24 @@ async function deckyPlugin() {
   const disabled = Boolean(folder) && Array.isArray(loader.disabled_plugins) && loader.disabled_plugins.some((n) => n === 'ScreenSaver' || n === folder);
   const own = folder ? readJson(path.join(home, 'homebrew', 'settings', folder, 'settings.json')) : null;
   const monitor = own && typeof own.run_on_login === 'boolean' ? own.run_on_login : true;
-  let listening = null;
-  if (inGameMode()) {
-    const out = await execFileP('busctl', ['--user', 'call', 'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'NameHasOwner', 's', 'org.freedesktop.ScreenSaver']);
-    listening = out == null ? null : /true/.test(out);
-  }
-  return { installed: Boolean(folder), disabled, monitor, listening };
+  let listener = null;
+  if (inGameMode()) listener = await screenSaverOwner();
+  return { installed: Boolean(folder), disabled, monitor, listener };
+}
+
+// Which program answers "don't dim" requests: { name, decky } (decky: it runs inside Decky
+// Loader), or null when nothing does.
+async function screenSaverOwner() {
+  const out = await execFileP('busctl', ['--user', 'call', 'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'GetConnectionUnixProcessID', 's', 'org.freedesktop.ScreenSaver']);
+  const pid = out && (out.match(/^u (\d+)/) || [])[1];
+  if (!pid) return null;
+  const read = (f) => { try { return fs.readFileSync(`/proc/${pid}/${f}`, 'utf8'); } catch { return ''; } };
+  const cmd = read('cmdline').split('\0').filter(Boolean);
+  let name = read('comm').trim();
+  // (a Python or other script names itself by its script, not "python3")
+  const script = cmd.slice(1).find((a) => !a.startsWith('-'));
+  if (/^python|^node$|^sh$|^bash$/.test(name) && script) name = path.basename(script);
+  return { name: name || `process ${pid}`, decky: cmd.some((a) => a.includes('/homebrew/')) };
 }
 
 const PORT = Number(process.env.SOFA_STEAM_CEF_PORT) || 8080; // (tests use a pretend Steam elsewhere)

@@ -37,13 +37,13 @@ app.whenReady().then(async () => { try {
   await js("window.__typingDone = 0"); ipcMain.emit('pad', { sender: wc }, 'menu'); await wait(400);
   LOG('Start -> dialog:', await js("!!document.querySelector('#ask-keys .kb-dialog')"), await js("document.querySelector('.kb-q') && document.querySelector('.kb-q').textContent"), '| default:', await js("document.querySelector('.kb-dialog .k.sel').textContent"));
   await shot('kb-dialog');
-  await key('Enter'); await wait(200);
-  LOG('A on "No": still typing?', await js('screen'), await js("!!document.querySelector('.kb-dialog')"));
+  await key('Left'); await key('Enter'); await wait(200);
+  LOG('Left, A on "No": still typing?', await js('screen'), await js("!!document.querySelector('.kb-dialog')"));
   await key('Escape'); await wait(300);
   LOG('B -> dialog:', await js("document.querySelector('.kb-q') && document.querySelector('.kb-q').textContent"));
   await key('Escape'); await wait(200);
-  ipcMain.emit('pad', { sender: wc }, 'menu'); await wait(300); await key('Right'); await key('Enter'); await wait(300);
-  LOG('Start, Right, A -> sent:', JSON.stringify(await js('window.__r')), '| screen', await js('screen'));
+  ipcMain.emit('pad', { sender: wc }, 'menu'); await wait(300); await key('Enter'); await wait(300);
+  LOG('Start, A (already on Yes) -> sent:', JSON.stringify(await js('window.__r')), '| screen', await js('screen'));
   // with "ask first" off
   await js("tv.setKbConfirm(false).then(s => { settings.kbConfirm = s.kbConfirm; }); 0"); await wait(300);
   await js("window.__r = 'pending'; askFor({ label: 'Again' }).then((v) => { window.__r = v; }); 0"); await wait(400);

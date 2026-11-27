@@ -164,6 +164,7 @@ function createSubsonic({ log = { debug() {} } } = {}) {
       const r = await call(server, 'search3', { query, songCount: count, albumCount: 0, artistCount: 0, musicFolderId: folder });
       out.push(...((r.searchResult3 && r.searchResult3.song) || []).map((s) => ({
         id: String(s.id), title: s.title || '', artist: s.artist || '', album: s.album || '', seconds: s.duration || 0,
+        cover: s.coverArt ? `jfimg://${encodeURIComponent(server.id)}/Items/${encodeURIComponent(s.coverArt)}/Images/Primary` : '',
       })));
     }
     return out;

@@ -42,7 +42,7 @@ const ERRORS = {
 const screens = {
   home: $('screen-home'), search: $('screen-search'), detail: $('screen-detail'),
   settings: $('screen-settings'), ask: $('screen-ask'),
-  episodes: $('screen-episodes'), choose: $('screen-choose'), update: $('screen-update'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
+  qr: $('screen-qr'), episodes: $('screen-episodes'), choose: $('screen-choose'), update: $('screen-update'), slots: $('screen-slots'), more: $('screen-more'), setup: $('screen-setup'), allgenres: $('screen-allgenres'), iptv: $('screen-iptv'),
 };
 let screen = 'home';
 const trail = []; // { screen, focus } to step back through
@@ -73,7 +73,7 @@ function back() {
     // Leave a person's filmography, back to the plain results.
     const from = search.personCard;
     search.person = null;
-    renderResults(search.results, labelFor(search.query));
+    renderResults(search.results, labelFor(search.query), search.onLive);
     if (from && from.isConnected) from.focus();
     else tvNav.focusFirst();
     return true;
@@ -87,6 +87,11 @@ function back() {
       return true;
     }
     rememberSettingsPlace();
+  }
+  // Live TV: B in the channel list goes up to the categories (B again, to the tabs).
+  if (screen === 'home' && view === 'live' && document.activeElement && document.activeElement.closest('#live-list')) {
+    const cat = $('live-groups').querySelector('.chosen') || $('live-groups').firstElementChild;
+    if (cat) { cat.focus(); if (window.tvSound) window.tvSound('move'); return true; }
   }
   const prev = trail.pop();
   if (!prev) return false;
@@ -684,14 +689,45 @@ async function runSearch() {
   if (search.music) return runMusicSearch();
   const q = search.query.trim();
   const seq = ++search.seq;
-  const res = await tv.search(q);
+  // Films and series from TMDB, and your live channels (by name, and what's on them soon).
+  const [res, onLive] = await Promise.all([tv.searchPage(q, 1), tv.liveFind(q).catch(() => null)]);
   if (seq !== search.seq || search.person) return; // a newer search (or a person view) took over
-  if (res.error) return showMessage(res.error);
-  search.results = res.ok;
-  renderResults(res.ok, res.ok.length ? labelFor(q) : `Nothing found for “${q}”`);
-  searchSugg.titles = res.ok.map((r) => r.title);
+  if (res.error && !(onLive && (onLive.channels.length || onLive.shows.length))) return showMessage(res.error);
+  const items = res.ok ? res.ok.items : [];
+  search.results = items;
+  search.onLive = onLive;
+  search.page = 1;
+  search.more = Boolean(res.ok && res.ok.more);
+  search.loadingMore = false;
+  const any = items.length || (onLive && (onLive.channels.length || onLive.shows.length));
+  renderResults(items, any ? labelFor(q) : `Nothing found for “${q}”`, onLive);
+  searchSugg.titles = items.map((r) => r.title);
   searchSuggestSoon(0);
 }
+
+// Further down the results, the next page of them arrives before you reach the end.
+async function searchMore() {
+  if (search.music || search.person || !search.more || search.loadingMore) return;
+  const q = search.query.trim();
+  const seq = search.seq;
+  search.loadingMore = true;
+  const res = await tv.searchPage(q, search.page + 1);
+  search.loadingMore = false;
+  if (seq !== search.seq || search.person || !res.ok) return;
+  search.page += 1;
+  search.more = res.ok.more;
+  const list = $('results');
+  const have = new Set([...list.querySelectorAll('.card')].map((c) => c.dataset.key));
+  const fresh = res.ok.items.filter((it) => !have.has(cardKey(it)));
+  search.results = [...search.results, ...fresh];
+  fresh.forEach((item, i) => { const c = resultCard(item); c.style.setProperty('--i', String(i)); list.append(c); });
+  // (A page with nothing new: try the next one.)
+  if (!fresh.length && search.more) searchMore();
+}
+$('results').addEventListener('focusin', (e) => {
+  const cards = [...$('results').querySelectorAll(':scope > .card')];
+  if (cards.length - cards.indexOf(e.target) <= 12) searchMore();
+});
 
 // ------------------------------------------------------------ search suggestions
 //
@@ -747,13 +783,44 @@ function showMessage(code) {
   $('results-message').hidden = false;
 }
 
-function renderResults(items, label) {
+function renderResults(items, label, onLive) {
   $('results-message').hidden = true;
   $('results-label').textContent = label;
   const list = $('results');
   list.replaceChildren();
   list.scrollTop = 0;
-  items.forEach((item, i) => { const c = resultCard(item); c.style.setProperty('--i', String(i)); list.append(c); });
+  let i = 0;
+  // Live channels first when there are any (searching a channel's name), with a heading each.
+  const channels = (onLive && onLive.channels) || [];
+  const shows = (onLive && onLive.shows) || [];
+  const heads = channels.length || shows.length;
+  if (channels.length) {
+    list.append(el('h3', { class: 'results-head', textContent: 'Live channels' }));
+    for (const c of channels) { const n = liveCard(c, c.on ? `On now: ${c.on}` : 'Live channel'); n.style.setProperty('--i', String(i++)); list.append(n); }
+  }
+  if (shows.length) {
+    list.append(el('h3', { class: 'results-head', textContent: 'On your live channels' }));
+    for (const p of shows) { const n = liveCard(p, `${p.name} · ${whenOn(p)}`, p.title); n.style.setProperty('--i', String(i++)); list.append(n); }
+  }
+  if (heads && items.length) list.append(el('h3', { class: 'results-head', textContent: 'Films and series' }));
+  items.forEach((item) => { const c = resultCard(item); c.style.setProperty('--i', String(i++)); list.append(c); });
+}
+
+// A live channel (or a programme on one) among the search results: its logo, its name, and what's
+// on. Choosing it tunes in (a programme that hasn't started says when it does).
+function liveCard(c, sub, title) {
+  const poster = el('span', { class: 'poster live-logo' }, c.name);
+  if (c.logo) {
+    const img = el('img', { alt: '', loading: 'lazy', src: c.logo });
+    img.addEventListener('error', () => img.remove());
+    poster.append(img);
+  }
+  const card = el('button', {
+    class: 'card live-result', nav: true,
+    onclick: () => (c.start && c.start > Date.now() ? toast(`${title} starts ${whenOn(c)} on ${c.name}.`, 4000) : tuneIn(c)),
+  }, poster, el('span', { class: 'name', textContent: title || c.name }), el('span', { class: 'sub', textContent: sub }));
+  card.dataset.key = `live:${c.id}:${c.start || ''}`;
+  return card;
 }
 
 function resultCard(item) {
@@ -1026,6 +1093,45 @@ tv.onJfPlayed(async ({ serverId, itemId, error }) => {
   }
 });
 
+// A title's QR codes (TMDB, IMDb): a screen of their own, B or Done closes it.
+let detailQr = null;
+async function showTitleQr(d) {
+  if (!d) return;
+  const r = await tv.titleQr(d.kind, d.id, d.imdbId);
+  if (!r.ok || !r.ok.length) { toast('Couldn\'t make the codes.', 3000); return; }
+  $('qr-title').textContent = d.title;
+  $('qr-pair').replaceChildren(...r.ok.map((q) => {
+    const box = el('div', { class: 'qr' });
+    box.innerHTML = q.svg; // (made by the app from the page's address)
+    return el('figure', {}, box, el('figcaption', {}, document.createTextNode(q.name), el('small', { textContent: q.url.replace(/^https:\/\/(www\.)?/, '') })));
+  }));
+  go('qr');
+  $('qr-close').focus();
+}
+$('d-qr').addEventListener('click', () => showTitleQr(detailQr));
+$('qr-close').addEventListener('click', () => back());
+
+// When something is on, as a short phrase: "on now", "at 9:00 PM", "Tue 9:00 PM".
+function whenOn(p) {
+  if (p.start <= Date.now()) return 'on now';
+  const d = new Date(p.start);
+  const today = new Date().toDateString() === d.toDateString();
+  return today ? `at ${timeOf(p.start)}` : `${d.toLocaleDateString([], { weekday: 'short' })} ${timeOf(p.start)}`;
+}
+// Tune in to a channel from search or a title's page.
+function tuneIn(c) { playLive([c], c); }
+
+// A title's page: the same title on your live channels, now or in the next two days.
+async function renderOnAir(title, seq) {
+  const found = await tv.liveOnAir(title);
+  if (screen !== 'detail' || seq !== detailSeq || !Array.isArray(found) || !found.length) return;
+  $('d-live-row').replaceChildren(...found.map((p) => el('button', {
+    class: 'pill', nav: true,
+    onclick: () => (p.start <= Date.now() ? tuneIn(p) : toast(`${p.title} starts ${whenOn(p)} on ${p.name}.`, 4000)),
+  }, document.createTextNode(p.name), el('small', { textContent: whenOn(p) }))));
+  $('d-live').hidden = false;
+}
+
 async function openDetail(item) {
   const seq = ++detailSeq;
   status('');
@@ -1042,7 +1148,7 @@ async function openDetail(item) {
   $('d-backdrop').style.backgroundImage = '';
   $('d-watch').replaceChildren(el('button', { class: 'watch-btn plain loading', nav: true }, el('span', { class: 'wb-name', textContent: 'Finding where to watch…' }), bar('9rem')));
   $('d-watch-label').textContent = 'Watch on';
-  for (const id of ['d-elsewhere', 'd-other', 'd-free', 'd-trakt', 'd-people-box', 'd-yt']) $(id).hidden = true;
+  for (const id of ['d-phone', 'd-live', 'd-elsewhere', 'd-other', 'd-free', 'd-trakt', 'd-people-box', 'd-yt']) $(id).hidden = true;
   $('d-side-loading').hidden = false;
   $('d-watch').firstElementChild.focus();
 
@@ -1103,6 +1209,11 @@ async function openDetail(item) {
   renderElsewhere(d);
   $('d-free').hidden = true;
   renderFreeSearch(d);
+  renderOnAir(d.title, seq);
+  // QR codes for its TMDB and IMDb pages.
+  detailQr = d;
+  $('d-qr').querySelector('small').textContent = d.imdbId ? 'TMDB · IMDb' : 'TMDB';
+  $('d-phone').hidden = false;
   renderTrakt(d, seq);
   renderPeople(d);
   $('d-tagline').textContent = d.tagline || '';
@@ -1216,9 +1327,36 @@ function renderFreeSearch(d) {
   $('d-free').hidden = !free.length;
 }
 
+// On a title's page, the Trakt buttons (top right) are the first stop to the right: Right from the
+// end of a line on the left goes there, and Left from them back to where you were.
+let traktCameFrom = null;
+document.addEventListener('keydown', (e) => {
+  if (screen !== 'detail' || $('d-trakt').hidden || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+  const at = document.activeElement;
+  const first = $('d-trakt-row').querySelector('[data-nav]');
+  if (!at || !first) return;
+  if (e.key === 'ArrowRight' && at.closest('.d-main')) {
+    const r = at.getBoundingClientRect();
+    const further = [...document.querySelectorAll('.d-main [data-nav]')].some((x) => {
+      const q = x.getBoundingClientRect();
+      return x !== at && x.offsetParent && q.left > r.left + 2 && q.top < r.bottom && q.bottom > r.top;
+    });
+    if (further) return;
+    traktCameFrom = at;
+    e.preventDefault(); e.stopImmediatePropagation();
+    first.focus();
+  } else if (e.key === 'ArrowLeft' && at === first) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    (traktCameFrom && traktCameFrom.isConnected && traktCameFrom.offsetParent ? traktCameFrom : $('d-watch').querySelector('[data-nav]') || first).focus();
+  } else return;
+  if (window.tvSound) window.tvSound('move');
+}, true);
+
 // Trakt: put it on your watchlist (or take it off), or mark a film watched.
 async function renderTrakt(d, seq) {
   $('d-trakt').hidden = true;
+  // (Known once Settings has been drawn; straight after starting, ask.)
+  if (!traktConnected) { const st = await tv.settings(); traktConnected = Boolean(st && st.trakt && st.trakt.connected); }
   if (!traktConnected) return;
   const r = await tv.traktTitle(d.kind, d.id);
   if (seq !== detailSeq || screen !== 'detail' || !r || r.error) return;
@@ -1987,9 +2125,13 @@ function renderPlayback(p) {
   $('pb-intro').classList.toggle('on', p.skipIntro);
   $('pb-credits').classList.toggle('on', p.skipCredits);
   $('pb-stop').classList.toggle('on', p.confirmStop);
+  $('pb-rewind').classList.toggle('on', p.rewindOnResume);
+  $('mpv-apppad').classList.toggle('on', p.appPad);
+  renderSeekSteps();
   const sw = p.stillWatching;
   for (const b of $('sw-mode').children) b.classList.toggle('chosen', b.dataset.mode === sw.mode);
   $('sw-stepper').hidden = sw.mode === 'off';
+  if (Object.keys(mpvBindings).length) renderMpvBindings();
   $('sw-value').textContent = sw.mode === 'episodes'
     ? `after ${sw.episodes} episode${sw.episodes === 1 ? '' : 's'} in a row`
     : `after ${hoursText(sw.minutes)} of watching`;
@@ -2004,6 +2146,34 @@ $('pb-autoplay').addEventListener('click', () => setPlayback({ autoplay: !playba
 $('pb-intro').addEventListener('click', () => setPlayback({ skipIntro: !playback.skipIntro }));
 $('pb-credits').addEventListener('click', () => setPlayback({ skipCredits: !playback.skipCredits }));
 $('pb-stop').addEventListener('click', () => setPlayback({ confirmStop: !playback.confirmStop }));
+$('pb-rewind').addEventListener('click', () => setPlayback({ rewindOnResume: !playback.rewindOnResume }));
+$('mpv-apppad').addEventListener('click', () => setPlayback({ appPad: !playback.appPad }));
+
+// How far each skip button goes: a line each, with − and +.
+const SEEK_STEPS = [5, 10, 15, 20, 30, 45, 60, 120, 300, 600];
+const seekLength = (s) => (s < 60 ? `${s} seconds` : s === 60 ? '1 minute' : `${s / 60} minutes`);
+const SEEK_WHAT = [['back60', 'back'], ['fwd60', 'ahead'], ['back10', 'back'], ['fwd30', 'ahead']];
+function renderSeekSteps() {
+  if (!playback || !playback.seek) return;
+  const box = $('pb-seek');
+  const had = document.activeElement && box.contains(document.activeElement) ? document.activeElement.dataset.seek : null;
+  box.replaceChildren(...SEEK_WHAT.map(([action, way]) => {
+    const secs = playback.seek[action];
+    const step = (dir) => {
+      const i = SEEK_STEPS.indexOf(secs);
+      const next = SEEK_STEPS[Math.max(0, Math.min(SEEK_STEPS.length - 1, (i < 0 ? 1 : i) + dir))];
+      if (next !== secs) setPlayback({ seek: { [action]: next } });
+    };
+    const holds = [mpvBindings.meta, mpvBindings.meta2].filter((x) => x != null).map((x) => tvButtons.nameOf(x)).join('/');
+    const key = mpvBindings[action] != null ? tvButtons.nameOf(mpvBindings[action])
+      : (action === 'back60' || action === 'fwd60') && holds && playback.appPad ? `Hold ${holds} + ${action === 'back60' ? '◀' : '▶'}` : 'No button';
+    const less = el('button', { class: 'pill', nav: true, textContent: '−', 'aria-label': 'Less', onclick: () => step(-1) });
+    const more = el('button', { class: 'pill', nav: true, textContent: '+', 'aria-label': 'More', onclick: () => step(1) });
+    less.dataset.seek = `${action}-less`; more.dataset.seek = `${action}-more`;
+    return el('div', { class: 'stepper' }, el('span', { class: 'seek-what', textContent: `${key}: ${way}` }), less, el('span', { textContent: seekLength(secs) }), more);
+  }));
+  if (had) box.querySelector(`[data-seek="${had}"]`)?.focus();
+}
 for (const b of $('sw-mode').children) {
   b.addEventListener('click', () => setPlayback({ stillWatching: { mode: b.dataset.mode } }));
 }
@@ -2046,8 +2216,10 @@ function renderGamescope(g) {
   // The plugin already does this: say so on both fixes.
   const pl = g.plugin || {};
   let found = '';
-  if (pl.listening || (pl.installed && !pl.disabled && pl.monitor)) {
-    found = `The DeckyInhibitScreenSaver plugin ${pl.listening ? 'is running' : 'is installed and switched on'} here, so turning this on is unnecessary.`;
+  // Only the plugin's own folder says it's installed: in Game Mode, other programs can answer
+  // the "don't dim" request too, and that doesn't mean Steam hears it.
+  if (pl.installed && !pl.disabled && pl.monitor) {
+    found = `The DeckyInhibitScreenSaver plugin is installed and switched on here${pl.listener && pl.listener.decky ? ' and running' : ''}, so turning this on is unnecessary.`;
   } else if (pl.installed) {
     found = `The DeckyInhibitScreenSaver plugin is installed here, but ${pl.disabled ? 'switched off in Decky' : 'its Background Monitor is off'}. Switching that on is the better fix.`;
   }
@@ -2055,6 +2227,10 @@ function renderGamescope(g) {
   $('gs-plugin-note').hidden = !found;
   $('gs-plugin-note2').textContent = found;
   $('gs-plugin-note2').hidden = !found;
+  // Something else answers "don't dim" here: name it (it may or may not stop Steam dimming).
+  const other = !pl.installed && pl.listener ? `"${pl.listener.name}" answers the "someone's watching" signal here, but that isn't the plugin, so Steam may still dim the screen.` : '';
+  $('gs-other').textContent = other;
+  $('gs-other').hidden = !other;
 }
 async function refreshGamescope() { renderGamescope(await tv.gamescopeState()); }
 $('gs-decky').addEventListener('click', () => tv.open('decky'));
@@ -2073,8 +2249,10 @@ const MPV_ACTIONS = [
   ['pause', 'Pause / play'], ['stop', 'Stop, back to the app'], ['skip', 'Skip intro / credits'],
   ['prev', 'Previous episode'], ['next', 'Next episode'], ['subs', 'Next subtitle track'], ['audio', 'Next audio track'],
   ['back10', 'Back 10 seconds'], ['fwd30', 'Ahead 30 seconds'], ['back60', 'Back 1 minute'], ['fwd60', 'Ahead 1 minute'],
-  ['volup', 'Volume up'], ['voldown', 'Volume down'], ['sound', 'Speakers: automatic, stereo, 5.1, 7.1'],
+  ['volup', 'Volume up'], ['voldown', 'Volume down'], ['sound', 'Speakers: automatic, stereo, 5.1, 7.1'], ['visual', 'Music and radio: the next picture'],
   ['time', 'Show the time and the buttons'],
+  ['menu', 'Open the menu'], ['menu2', 'Open the menu (another button)'],
+  ['meta', 'Hold: ◀ ▶ skip further, ▲ ▼ volume'], ['meta2', 'Hold: the same (another button)'],
 ];
 const mpvName = Object.fromEntries(MPV_ACTIONS);
 let mpvBindings = {};
@@ -2090,12 +2268,15 @@ function renderMpvBindings(b) {
   const focused = document.activeElement && document.activeElement.dataset.mpvAction;
   box.replaceChildren();
   for (const [action, label] of MPV_ACTIONS) {
+    const secs = playback && playback.seek && playback.seek[action];
+    const text = secs ? `${action.startsWith('back') ? 'Back' : 'Ahead'} ${seekLength(secs)}` : label;
     const row = el('button', { class: 'pill bind-row', nav: true, onclick: () => rebindMpv(action, row) },
-      el('span', { textContent: label }), el('kbd', { textContent: tvButtons.nameOf(mpvBindings[action]) }));
+      el('span', { textContent: text }), el('kbd', { textContent: tvButtons.nameOf(mpvBindings[action]) }));
     row.dataset.mpvAction = action;
     box.append(row);
   }
   if (focused) box.querySelector(`[data-mpv-action="${focused}"]`)?.focus();
+  renderSeekSteps(); // (its lines are named by button)
 }
 
 async function rebindMpv(action, row) {
@@ -2573,12 +2754,18 @@ function liveGroups(st) {
   // (While the rest of the channels are still arriving, the counts come from the app.)
   if (st.favorites > 0 || st.channels.some((c) => c.favorite)) groups.push({ id: 'fav', name: '★ Favourites' });
   groups.push({ id: 'all', name: `All (${st.total != null ? st.total : st.channels.length})` });
+  if (st.recentChannels && st.recentChannels.length) groups.push({ id: 'recent', name: 'Recently watched' });
   const counts = new Map(st.groupCounts || []);
   if (!st.groupCounts) for (const c of st.channels) if (c.group) counts.set(c.group, (counts.get(c.group) || 0) + 1);
   for (const [g] of [...counts].sort((a, b) => b[1] - a[1]).slice(0, 30)) groups.push({ id: `g:${g}`, name: g });
   return groups;
 }
 
+// Recently watched, newest first: the channels as the guide has them (once that part has arrived).
+function recentLive(st) {
+  const byId = new Map(st.channels.map((c) => [c.id, c]));
+  return (st.recentChannels || []).map((id) => byId.get(id)).filter(Boolean);
+}
 const inGroup = (c, g) => (g === 'fav' ? c.favorite : g === 'all' ? true : c.group === g.slice(2));
 
 function renderLive(st, { focus = false, keep = false } = {}) {
@@ -2627,7 +2814,7 @@ function renderLive(st, { focus = false, keep = false } = {}) {
 
   const list = $('live-list');
   const scroll = list.scrollTop;
-  const shown = st.channels.filter((c) => inGroup(c, live.group));
+  const shown = live.group === 'recent' ? recentLive(st) : st.channels.filter((c) => inGroup(c, live.group));
   // Nothing you'd see has changed (a refresh with no news, a minute ticking by in the same
   // programmes): leave the guide as it is rather than redrawing it.
   const minute = Math.floor(Date.now() / 60000);
@@ -2696,6 +2883,58 @@ document.addEventListener('keydown', (e) => {
   target.scrollIntoView({ block: 'nearest' });
   if (window.tvSound) window.tvSound('move');
 }, true);
+// L2 / R2 (page up / page down): a screenful at a time. In the guide, that many channels; anywhere
+// else that scrolls, the option or picture about a screen's height above or below, in line with
+// where you are (or the first / last one, near the ends). Not on the keyboards, where L2 and R2
+// are Shift.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'PageUp' && e.key !== 'PageDown') return;
+  const a = document.activeElement;
+  if (!a || a === document.body || a.closest('.osk, #screen-ask, .kb-sugg, #osk-sugg')) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const dir = e.key === 'PageDown' ? 1 : -1;
+  const row = a.closest('#live-list .live-row');
+  if (row) {
+    const rows = $('live-list').children;
+    const per = Math.max(1, Math.floor($('live-list').clientHeight / row.offsetHeight) - 1);
+    const at = Array.prototype.indexOf.call(rows, row);
+    const to = rows[Math.max(0, Math.min(rows.length - 1, at + dir * per))];
+    if (!to || to === row) return;
+    const t = to.querySelector(a.classList.contains('live-fav') ? '.live-fav' : '.live-ch');
+    t.focus({ preventScroll: true });
+    t.scrollIntoView({ block: dir > 0 ? 'end' : 'start' });
+    if (window.tvSound) window.tvSound('move');
+    return;
+  }
+  // The nearest box that scrolls up and down.
+  let box = a.parentElement;
+  while (box && box !== document.body) {
+    const oy = getComputedStyle(box).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && box.scrollHeight > box.clientHeight + 4) break;
+    box = box.parentElement;
+  }
+  if (!box || box === document.body) return;
+  const here = a.getBoundingClientRect();
+  const cx = here.left + here.width / 2;
+  const line = here.top + here.height / 2 + dir * box.clientHeight;
+  let best = null;
+  let bestScore = Infinity;
+  for (const n of box.querySelectorAll('[data-nav]')) {
+    if (n === a || n.disabled || !n.offsetParent) continue;
+    const r = n.getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    if (dir > 0 ? mid <= here.top + here.height / 2 + 4 : mid >= here.top + here.height / 2 - 4) continue;
+    // Closest to a screen away (or as far as there is), then closest in line with where you are.
+    const over = dir > 0 ? Math.max(0, mid - line) : Math.max(0, line - mid);
+    const short = dir > 0 ? Math.max(0, line - mid) : Math.max(0, mid - line);
+    const score = over * 1.5 + short + Math.abs(r.left + r.width / 2 - cx) * 0.5;
+    if (score < bestScore) { bestScore = score; best = n; }
+  }
+  if (!best) return;
+  best.focus();
+  if (window.tvSound) window.tvSound('move');
+}, true);
+
 // Move the "how far through" bars along without redrawing anything.
 function liveProgress() {
   const now = Date.now();

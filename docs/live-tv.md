@@ -13,7 +13,9 @@ The **Live** tab gathers channels from:
 ## Watching
 
 - **A** tunes in. **Right, then A** stars a channel; favourites come first.
-- Categories from your lists run along the top.
+- **Recently watched** (among the categories) lists the channels you've tuned in to lately, newest first.
+- Categories from your lists run along the top. **B** in the channel list jumps back up to them (B again goes to the tabs).
+- **L2 / R2** jump a screenful of channels up or down.
 - While watching: **L1 / R1** flip channels, **Y** shows what's on now and next, and **B** (twice) stops.
 
 ## Tidying up

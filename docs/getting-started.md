@@ -39,7 +39,7 @@ These are the defaults. Change any of them in **Settings → Controller**.
 | Y | Play / pause; a space when typing |
 | X | Delete a letter |
 | Right stick | Move the pointer on websites |
-| R2 / L2 | Click / right-click at the pointer |
+| R2 / L2 | Click / right-click at the pointer on websites; in the app, a screenful down / up in long lists |
 | R1 / L1 | Scroll on websites; switch tabs in the app |
 
 A keyboard works everywhere too. **Quit SOFA King** is the last item in the menu (it asks first). You sign in to each streaming service once; it's remembered.

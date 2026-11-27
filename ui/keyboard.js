@@ -205,10 +205,13 @@
       // Both answers look alike until chosen: the chosen one is lit up and the other fades back
       // (a coloured "Yes" used to look chosen when it wasn't).
       const no = document.createElement('div');
-      no.className = 'k mid choice sel';
+      // (Sending what you typed starts on Yes: that's usually why you pressed Done. Cancelling
+      // starts on No, so what you typed isn't lost by one press.)
+      const startYes = kind === 'submit';
+      no.className = `k mid choice${startYes ? '' : ' sel'}`;
       no.textContent = 'No, keep typing';
       const yes = document.createElement('div');
-      yes.className = 'k mid choice';
+      yes.className = `k mid choice${startYes ? ' sel' : ''}`;
       yes.textContent = kind === 'submit' ? 'Yes, send it' : 'Yes, cancel';
       no.addEventListener('click', () => closeDialog());
       yes.addEventListener('click', () => finish(kind, true));
@@ -218,7 +221,7 @@
       how.textContent = `Left / right to choose · ${buttonName('ok') || 'A'} to answer · ${buttonName('back') || 'B'}: keep typing`;
       box.append(q, btns, how);
       root.append(box);
-      kb.dialog = { kind, box, no, yes, onYes: false };
+      kb.dialog = { kind, box, no, yes, onYes: startYes };
       if (window.tvSound) window.tvSound('open');
     }
     function closeDialog() {

@@ -252,6 +252,7 @@ function createJellyfin({ deviceId, version, log = { debug() {} } }) {
       year: it.ProductionYear || null,
       sortName: it.SortName || it.Name || '',
       tmdbId: Number((it.ProviderIds || {}).Tmdb || (it.ProviderIds || {}).tmdb) || null,
+      imdbId: /^tt\d+$/.test((it.ProviderIds || {}).Imdb || '') ? it.ProviderIds.Imdb : null,
       // Which item's poster to show: a show's poster for its episodes.
       poster: it.Type === 'Episode'
         ? (it.SeriesPrimaryImageTag && it.SeriesId ? it.SeriesId : null)
@@ -582,6 +583,7 @@ function createJellyfin({ deviceId, version, log = { debug() {} } }) {
     return ((r && r.Items) || []).map((x) => ({
       id: x.Id, title: x.Name || '', artist: (x.Artists || []).join(', ') || x.AlbumArtist || '', album: x.Album || '',
       seconds: Math.round((x.RunTimeTicks || 0) / 1e7), url: `${server.url}/Audio/${x.Id}/stream?static=true`,
+      cover: x.AlbumId && x.AlbumPrimaryImageTag ? `jfimg://${encodeURIComponent(server.id)}/Items/${encodeURIComponent(x.AlbumId)}/Images/Primary?fillHeight=500&quality=85` : '',
     }));
   }
   async function musicRecent(server, limit = 30) {

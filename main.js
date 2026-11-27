@@ -21,6 +21,7 @@ const { createJellyfin } = require('./jellyfin');
 const { createWatchmode } = require('./watchmode');
 const { createTrakt } = require('./trakt');
 const player = require('./player');
+const visuals = require('./visuals');
 const crypto = require('crypto');
 const http = require('http');
 const livetv = require('./livetv');
@@ -203,7 +204,9 @@ function loadConfig() {
     debugLog: merged.debugLog === true,
     mpvScreen: Number.isInteger(merged.mpvScreen) ? merged.mpvScreen : null, // null: the app's own screen
     // Speakers in mpv (the sound button steps through these, and the last one picked is kept).
+    mpvVolume: Number.isInteger(merged.mpvVolume) && merged.mpvVolume >= 0 && merged.mpvVolume <= 130 ? merged.mpvVolume : null,
     mpvSound: player.SOUND_CHOICES.some((c) => c.value === merged.mpvSound) ? merged.mpvSound : 'auto-safe',
+    mpvVisual: visuals.visualIds.includes(merged.mpvVisual) ? merged.mpvVisual : 'cover',
     gamescope: cleanGamescope(merged.gamescope),
     fullScreen: merged.fullScreen !== false, // the app fills the screen (unless started with --windowed)
     motion: merged.motion !== false, // animations (off: everything moves straight to where it's going)
@@ -317,6 +320,7 @@ function cleanRadioConfig(r) {
   return {
     stations: (Array.isArray(x.stations) ? x.stations : []).map(cleanStation).filter(Boolean).slice(0, 200),
     favorites: (Array.isArray(x.favorites) ? x.favorites : []).map(cleanStation).filter(Boolean).slice(0, 200),
+    recent: (Array.isArray(x.recent) ? x.recent : []).map(cleanStation).filter(Boolean).slice(0, 20), // listened to lately, newest first
     somafm: x.somafm !== false,
     country: typeof x.country === 'string' && /^[A-Z]{2}$/.test(x.country) ? x.country : null,
   };
@@ -331,7 +335,7 @@ function saveUserConfig(patch) {
 let CONFIG = {
   tmdbKey: '', region: 'US', phonePort: 8765, showHints: true, jellyfinServers: [], jellyfinDeviceId: '', bindings: null,
   playback: null, mpvBindings: null, music: { servers: [], services: null, useJellyfin: true, usePlex: true, listenbrainz: '', lastfmKey: '', lastfm: cleanLastfm(null), shelves: { unofficial: true, tribute: true, appears: true, related: true } },
-  radio: { stations: [], favorites: [], somafm: true, country: null },
+  radio: { stations: [], favorites: [], recent: [], somafm: true, country: null },
   youtube: { open: 'auto', adblock: false, sponsorblock: false, dislikes: false, dearrow: false, sbCategories: ['sponsor'] },
   updates: cleanUpdatesConfig(null),
   suggest: cleanSuggestConfig(null),
@@ -1117,7 +1121,7 @@ function webSound(name) {
 
 const KEYMAP = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', ok: 'Enter' };
 // On our own screens: delete a letter, and play/pause doubles as "type a space".
-const OUR_PAGE_KEYS = { delete: ['Backspace', null], playpause: ['Space', ' '] };
+const OUR_PAGE_KEYS = { delete: ['Backspace', null], playpause: ['Space', ' '], rclick: ['PageUp', null], lclick: ['PageDown', null] };
 
 const EXIT_FULLSCREEN_JS = `(() => { if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return true; } return false; })()`;
 
@@ -1281,6 +1285,33 @@ function tmdbHandler(channel, fn) {
   });
 }
 tmdbHandler('tmdb:search', (query) => tmdb.search(String(query).slice(0, 100)));
+// The TMDB and IMDb pages of something playing from your server (for the QR codes in mpv's menu):
+// an episode's are its show's. TMDB fills in IMDb's number when your server doesn't have it.
+async function titleLinks(server, e) {
+  if (!e) return [];
+  let kind = 'movie'; let id = e.tmdbId; let imdb = e.imdbId;
+  if (e.seriesId) {
+    kind = 'tv';
+    try { const s = await be(server).getItem(server, e.seriesId); id = s.tmdbId; imdb = s.imdbId; } catch { id = null; imdb = null; }
+  }
+  if (id && !imdb && CONFIG.tmdbKey) { try { imdb = (await tmdb.details(kind, id)).imdbId; } catch { /* TMDB's page will do */ } }
+  const out = [];
+  if (id) out.push({ name: 'TMDB', url: `https://www.themoviedb.org/${kind}/${id}` });
+  if (imdb) out.push({ name: 'IMDb', url: `https://www.imdb.com/title/${imdb}/` });
+  return out;
+}
+
+// QR codes for a title's TMDB and IMDb pages, to open on your phone: [{ name, url, svg }].
+async function titleQrs(kind, id, imdbId) {
+  const QRCode = require('qrcode');
+  const out = [];
+  if ((kind === 'movie' || kind === 'tv') && /^\d+$/.test(String(id))) out.push({ name: 'TMDB', url: `https://www.themoviedb.org/${kind}/${id}` });
+  if (/^tt\d+$/.test(String(imdbId || ''))) out.push({ name: 'IMDb', url: `https://www.imdb.com/title/${imdbId}/` });
+  for (const q of out) q.svg = await QRCode.toString(q.url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b0b10', light: '#ffffff' } });
+  return out;
+}
+tmdbHandler('tmdb:qr', (kind, id, imdbId) => titleQrs(String(kind), String(id), imdbId ? String(imdbId) : null));
+tmdbHandler('tmdb:search-page', (query, page) => tmdb.searchPage(String(query).slice(0, 100), Math.max(1, Math.min(25, Number(page) || 1))));
 tmdbHandler('tmdb:person', (id) => tmdb.person(Number(id)));
 tmdbHandler('tmdb:details', async (kind, id) => {
   const d = await tmdb.details(String(kind), Number(id));
@@ -2315,12 +2346,16 @@ const DEFAULT_PLAYBACK = {
   skipCredits: false,
   confirmStop: true, // press stop twice to leave mpv, so one stray press doesn't end the show
   stillWatching: { mode: 'time', episodes: 3, minutes: 180 }, // mode: 'off' | 'episodes' | 'time'
+  seek: { ...player.SEEK_DEFAULTS }, // how far each skip button goes, in seconds
+  rewindOnResume: false, // after a pause, carry on from a second earlier
+  appPad: true, // the app reads the controller in mpv (the menu, the hold buttons); off: mpv reads it itself
 };
 
 function cleanPlayback(saved) {
-  const p = { ...DEFAULT_PLAYBACK, stillWatching: { ...DEFAULT_PLAYBACK.stillWatching } };
+  const p = { ...DEFAULT_PLAYBACK, stillWatching: { ...DEFAULT_PLAYBACK.stillWatching }, seek: { ...DEFAULT_PLAYBACK.seek } };
   if (!saved || typeof saved !== 'object') return p;
-  for (const k of ['autoplay', 'skipIntro', 'skipCredits', 'confirmStop']) if (typeof saved[k] === 'boolean') p[k] = saved[k];
+  for (const k of ['autoplay', 'skipIntro', 'skipCredits', 'confirmStop', 'rewindOnResume', 'appPad']) if (typeof saved[k] === 'boolean') p[k] = saved[k];
+  for (const k of Object.keys(p.seek)) if (saved.seek && player.SEEK_STEPS.includes(saved.seek[k])) p.seek[k] = saved.seek[k];
   const sw = saved.stillWatching || {};
   if (['off', 'episodes', 'time'].includes(sw.mode)) p.stillWatching.mode = sw.mode;
   if (Number.isInteger(sw.episodes)) p.stillWatching.episodes = Math.min(20, Math.max(1, sw.episodes));
@@ -2328,9 +2363,13 @@ function cleanPlayback(saved) {
   return p;
 }
 
+// L2 and R2 are "hold" buttons (meta): held (or both pressed to lock), ◀ ▶ skip further and ▲ ▼
+// change the volume. Start and ▲ open the menu. (back60, fwd60, volup and voldown are what holding
+// does; they can still be given buttons of their own.)
 const DEFAULT_MPV_BINDINGS = {
-  pause: 0, stop: 1, subs: 2, skip: 3, prev: 4, next: 5, back60: 6, fwd60: 7,
-  audio: 8, time: 9, sound: 10, volup: 12, voldown: 13, back10: 14, fwd30: 15,
+  pause: 0, stop: 1, subs: 2, skip: 3, prev: 4, next: 5, meta: 6, meta2: 7,
+  audio: 8, menu: 9, sound: 10, visual: 11, menu2: 12, time: 13, back10: 14, fwd30: 15,
+  back60: null, fwd60: null, volup: null, voldown: null,
 };
 const MPV_ACTIONS = Object.keys(DEFAULT_MPV_BINDINGS);
 
@@ -2341,6 +2380,12 @@ function cleanMpvBindings(saved) {
       const n = saved[a];
       if (n === null) out[a] = null;
       else if (Number.isInteger(n) && n >= 0 && n <= 16) out[a] = n;
+    }
+    // Saved before the menu (November 27, 2026): L2, R2, ▲ and ▼ make way for the hold buttons and
+    // the menu, where they still had their old jobs.
+    if (!('meta' in saved)) {
+      for (const [a, b] of [['back60', 6], ['fwd60', 7], ['volup', 12], ['voldown', 13]]) if (out[a] === b) out[a] = null;
+      if (out.time === 9) out.time = MPV_ACTIONS.some((x) => out[x] === 13) ? null : 13;
     }
     // An action added since these were saved doesn't take a button you've already given to another.
     for (const a of MPV_ACTIONS) {
@@ -2369,12 +2414,22 @@ function mpvHelp(kind = 'video') {
   add(`Previous / next ${one}`, 'prev', 'next');
   if (kind === 'video') add('Skip intro / credits', 'skip');
   if (kind === 'live') add('What\'s on', 'skip');
-  if (kind === 'video' || kind === 'song') add('Back 10 s / ahead 30 s', 'back10', 'fwd30');
-  if (kind === 'video') add('Back / ahead 1 min', 'back60', 'fwd60');
+  const sk = CONFIG.playback.seek;
+  const len = (s) => (s < 60 ? `${s} s` : `${s / 60} min`);
+  const pair = (a, b) => (sk[a] === sk[b] ? `Back / ahead ${len(sk[a])}` : `Back ${len(sk[a])} / ahead ${len(sk[b])}`);
+  if (kind === 'video' || kind === 'song') add(pair('back10', 'fwd30'), 'back10', 'fwd30');
+  if (kind === 'video') add(pair('back60', 'fwd60'), 'back60', 'fwd60');
+  if (CONFIG.playback.appPad) {
+    const hold = [b.meta, b.meta2].filter((x) => x != null).map(buttonName);
+    if (hold.length) items.push({ keys: [hold.join('/')], label: kind === 'video' || kind === 'song' ? 'Hold: skip, volume' : 'Hold: volume' });
+    const menu = [b.menu, b.menu2].filter((x) => x != null).map(buttonName);
+    if (menu.length) items.push({ keys: menu, label: 'Menu' });
+  }
   if (kind === 'video' || kind === 'live') add('Subtitles', 'subs');
   if (kind === 'video' || kind === 'live') add('Audio track', 'audio');
   add('Volume', 'volup', 'voldown');
   add('Speakers', 'sound');
+  if (kind === 'song' || kind === 'station') add('Picture', 'visual');
   add('Stop', 'stop');
   return items;
 }
@@ -2383,12 +2438,93 @@ function mpvHelpFooter() {
   return t == null ? 'Pause to see these again' : `Pause, or press ${buttonName(t)}, to see these again`;
 }
 // What every mpv start shares: the panel's footer, the speakers, and whether panels fade.
+// (The volume carries over: the next thing plays as loud as the last was left.)
 const mpvCommon = () => ({
+  appPad: CONFIG.playback.appPad,
+  volume: CONFIG.mpvVolume,
+  onVolume: (v) => {
+    if (v === CONFIG.mpvVolume) return;
+    CONFIG.mpvVolume = v;
+    saveUserConfig({ mpvVolume: v });
+  },
   helpFooter: mpvHelpFooter(),
+  seeks: CONFIG.playback.seek,
   sound: CONFIG.mpvSound,
   motion: CONFIG.motion,
   onSound: (value) => { CONFIG.mpvSound = value; saveUserConfig({ mpvSound: value }); },
 });
+// Music and radio: the picture (visualiser) to show, remembered when it's changed, and each
+// entry's cover (or station logo) fetched to a file mpv can read. urlOf(i): the picture's address.
+function mpvMusic(how, urlOf) {
+  return {
+    visual: CONFIG.mpvVisual,
+    onVisual: (id) => { CONFIG.mpvVisual = id; saveUserConfig({ mpvVisual: id }); },
+    cover: (i) => coverFile(how, urlOf(i)),
+  };
+}
+
+// A picture from one of your servers (jfimg://<server id>/Items/<id>/Images/Primary…), fetched
+// with that server's own sign-in: for the pages (as jfimg: addresses) and for mpv's covers.
+async function serverImage(url) {
+  try {
+    const u = new URL(url);
+    const id = decodeURIComponent(u.hostname);
+    const server = CONFIG.jellyfinServers.find((s) => s.id === id && s.token) || plexServers().find((s) => s.id.toLowerCase() === id.toLowerCase()) ||
+      CONFIG.music.servers.find((s) => s.id === id);
+    if (server && server.type === 'subsonic') {
+      // (Navidrome: its cover picture, asked for with the sign-in out of sight.)
+      const m = /^\/Items\/([^/]+)\/Images\/Primary$/.exec(u.pathname);
+      if (!m) return new Response('', { status: 404 });
+      const r = await subsonic.cover(server, decodeURIComponent(m[1]), 500);
+      return new Response(r.body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') || 'image/jpeg' } });
+    }
+    const m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb)(\/0)?$/.exec(u.pathname);
+    if (!server || !m) return new Response('', { status: 404 });
+    // (Plex: the same kind of address, turned into Plex's picture resizer for that item.)
+    const r = server.type === 'plex'
+      ? await fetch(`${server.url}${plex.imagePath(decodeURIComponent(m[1]), m[2])}`, { headers: { 'X-Plex-Token': server.token, Accept: 'image/*' } })
+      : await fetch(`${server.url}${u.pathname}${u.search}`, { headers: { 'X-Emby-Token': server.token } });
+    return new Response(r.body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') || 'image/jpeg' } });
+  } catch {
+    return new Response('', { status: 502 });
+  }
+}
+
+// Cover pictures for mpv, saved where it can read them (sofa-cover-<n> in its shared folder), and
+// tidied away when the app closes. Pictures from your servers come with that server's sign-in (as
+// the app's pages get them); station logos are plain public pictures. Only real pictures are kept
+// (JPEG, PNG, WebP or GIF, under 8 MB): anything else, and there's no cover.
+const coverFiles = new Map(); // address -> promise of path or null
+function coverFile(how, url) {
+  if (!url) return Promise.resolve(null);
+  if (!coverFiles.has(url)) {
+    coverFiles.set(url, (async () => {
+      try {
+        const r = /^jfimg:/.test(url) ? await serverImage(url)
+          : /^https?:\/\//.test(url) ? await fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'SOFAKing/0.1', Accept: 'image/*' } })
+            : null;
+        if (!r || !r.ok) return null;
+        const buf = Buffer.from(await r.arrayBuffer());
+        const ext = buf.length > 8 * 1024 * 1024 ? null
+          : buf[0] === 0xff && buf[1] === 0xd8 ? 'jpg'
+            : buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) ? 'png'
+              : buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP' ? 'webp'
+                : buf.subarray(0, 3).toString() === 'GIF' ? 'gif' : null;
+        if (!ext) return null;
+        const file = path.join(player.sharedDir(how.via), `sofa-cover-${process.pid}-${crypto.createHash('sha1').update(url).digest('hex').slice(0, 12)}.${ext}`);
+        fs.writeFileSync(file, buf);
+        return file;
+      } catch {
+        return null;
+      }
+    })());
+  }
+  return coverFiles.get(url);
+}
+async function forgetCovers() {
+  for (const p of coverFiles.values()) { const f = await p.catch(() => null); if (f) fs.rm(f, { force: true }, () => {}); }
+  coverFiles.clear();
+}
 
 const titleOf = (e) => (e.series ? `${e.series} · S${e.season ?? '?'}E${e.episode ?? '?'} · ${e.name}` : e.name);
 
@@ -2421,7 +2557,10 @@ async function playInMpv(server, itemId, resume, how) {
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
     help: mpvHelp('video'),
+    kind: 'video',
     ...mpvCommon(),
+    rewindOnResume: CONFIG.playback.rewindOnResume,
+    links: (i) => titleLinks(server, list[i]),
     keepAwake: true,
     loadingText: (i) => `Loading ${entries[i] ? entries[i].title : ''}…`,
     log, logFile: mpvLogFile(how),
@@ -2446,7 +2585,7 @@ async function playInMpv(server, itemId, resume, how) {
 // one) gets the buttons from the app instead: the home page keeps reading the controller while mpv
 // is in front and sends each press here ('pad-raw'), and it's passed to mpv by name.
 let padlessMpv = null;
-// While a picture plays (opts.keepAwake: films, shows, live TV; not radio or music), the computer
+// While something plays (opts.keepAwake: films, shows, live TV, and music and radio, which show a picture too), the computer
 // is told someone's watching, so the screen doesn't dim or the computer sleep. This is the standard
 // "don't dim" request desktops honour (mpv sends its own there too). Steam's Game Mode has nothing
 // that listens for it, unless the DeckyInhibitScreenSaver plugin is installed. Lifted while paused.
@@ -2490,11 +2629,19 @@ function gamescopeWatching(on) {
 }
 
 function playMpv(opts) {
+  // (Paused for a few seconds before the screen may dim: changing the picture for music pauses
+  // mpv for a blink, which shouldn't turn Steam's dimming back on and off each time.)
+  let lift = null;
+  const awake = (on) => {
+    clearTimeout(lift);
+    if (on) keepAwake(true); else lift = setTimeout(() => keepAwake(false), 4000);
+  };
   const ctl = player.play({
     ...opts,
-    onState: (st) => { if (opts.keepAwake) keepAwake(!st.paused); opts.onState(st); },
+    onState: (st) => { if (opts.keepAwake) awake(!st.paused); opts.onState(st); },
     onPadless: () => { padlessMpv = ctl; home?.webContents.send('pad:to-mpv', true); },
     onExit: (error) => {
+      clearTimeout(lift);
       keepAwake(false);
       if (padlessMpv === ctl) { padlessMpv = null; home?.webContents.send('pad:to-mpv', false); }
       opts.onExit(error);
@@ -2502,8 +2649,8 @@ function playMpv(opts) {
   });
   return ctl;
 }
-ipcMain.on('pad-raw', (event, button) => {
-  if (padlessMpv && home && event.sender === home.webContents && Number.isInteger(button)) padlessMpv.press(button);
+ipcMain.on('pad-raw', (event, button, phase) => {
+  if (padlessMpv && home && event.sender === home.webContents && Number.isInteger(button)) padlessMpv.press(button, ['down', 'repeat', 'up'].includes(phase) ? phase : 'down');
 });
 
 // "Are you sure?": the first press asks, a second press within a few seconds stops.
@@ -2685,7 +2832,7 @@ function askStillWatching(sess, ctl) {
 
 ipcMain.handle('ui:set-playback', (event, patch) => {
   if (event.sender !== home?.webContents || !patch || typeof patch !== 'object') return null;
-  const merged = { ...CONFIG.playback, ...patch, stillWatching: { ...CONFIG.playback.stillWatching, ...(patch.stillWatching || {}) } };
+  const merged = { ...CONFIG.playback, ...patch, stillWatching: { ...CONFIG.playback.stillWatching, ...(patch.stillWatching || {}) }, seek: { ...CONFIG.playback.seek, ...(patch.seek || {}) } };
   CONFIG.playback = cleanPlayback(merged);
   saveUserConfig({ playback: CONFIG.playback });
   return settingsState();
@@ -2935,7 +3082,7 @@ function musicRelay() {
 }
 
 function playMusic(server, al, index, how) {
-  return playQueue(al.tracks.map((t) => ({ server, track: t, album: al.title, albumArtist: al.artist })), index, how, { serverId: server.id, itemId: al.itemId });
+  return playQueue(al.tracks.map((t) => ({ server, track: t, album: al.title, albumArtist: al.artist, cover: al.cover })), index, how, { serverId: server.id, itemId: al.itemId });
 }
 
 // Songs in mpv, one after another: [{ server, track, album?, albumArtist? }]. Songs can come from
@@ -2966,7 +3113,10 @@ async function playQueue(queue, index, how, played) {
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
     help: mpvHelp('song'),
+    kind: 'song',
+    keepAwake: true, // (the cover or a visualiser is on screen)
     ...mpvCommon(),
+    ...mpvMusic(how, (i) => queue[i] && (queue[i].cover || queue[i].track.cover)),
     loadingText: (i) => `Loading ${queue[i] ? queue[i].track.title : ''}…`,
     log, logFile: mpvLogFile(how),
     autoplay: true,
@@ -2975,6 +3125,7 @@ async function playQueue(queue, index, how, played) {
     // you've heard half of it or four minutes.
     onFileStart: (i) => {
       const q = queue[i];
+      ctl.card(null); // (the song's card waits until it's playing, off the loading dots)
       if (!q) return;
       if (sub(q)) subsonic.scrobble(q.server, q.track.id, false);
       startedAt[i] = Math.floor(Date.now() / 1000);
@@ -2989,6 +3140,11 @@ async function playQueue(queue, index, how, played) {
         lfDone.add(i);
         lastfmSend(q.server, 'scrobble', lastfmTrack(q, length), startedAt[i]);
       }
+    },
+    // What's playing: the song, who by, and the album.
+    onPlaying: (i) => {
+      const q = queue[i];
+      if (q) ctl.card([q.track.title, q.track.artist || q.albumArtist, q.album || q.track.album]);
     },
     onState: () => {},
     onMessage: (args) => { if (args[0] === 'tv-overlay-stop') confirmStop(sess, ctl, 'listening'); },
@@ -3015,12 +3171,19 @@ const publicMusic = () => ({
     on: !CONFIG.music.lastfm.skip.includes(s.id),
   })),
   shelves: { ...CONFIG.music.shelves },
+  visual: CONFIG.mpvVisual, visuals: visuals.VISUALS.map(({ id, name }) => ({ id, name })),
+  visualButton: CONFIG.mpvBindings.visual == null ? null : buttonName(CONFIG.mpvBindings.visual),
 });
 function saveMusic() {
   saveUserConfig({ music: CONFIG.music });
   home?.webContents.send('music:changed', publicMusic());
 }
 musicHandler('music:settings', () => publicMusic());
+// The picture while music and radio play (its button in mpv changes it too).
+musicHandler('music:visual', (id) => {
+  if (visuals.visualIds.includes(String(id))) { CONFIG.mpvVisual = String(id); saveUserConfig({ mpvVisual: CONFIG.mpvVisual }); }
+  return publicMusic();
+});
 musicHandler('music:add-server', async (url, user, password) => {
   const s = await subsonic.connect(String(url || ''), String(user || ''), String(password || ''));
   CONFIG.music.servers = [...CONFIG.music.servers.filter((x) => x.id !== s.id), { ...s, folders: [] }];
@@ -3226,6 +3389,7 @@ musicHandler('radio:state', () => radioState());
 musicHandler('radio:list', async (kind, arg) => {
   if (kind === 'favorites') return markFav(CONFIG.radio.favorites);
   if (kind === 'mine') return markFav(CONFIG.radio.stations);
+  if (kind === 'recent') return markFav(CONFIG.radio.recent);
   if (kind === 'somafm') return markFav(await radio.somafm());
   if (kind === 'search') return markFav(await radio.search(String(arg || '')));
   if (kind === 'tag') return markFav(await radio.byTag(String(arg || '')));
@@ -3289,13 +3453,21 @@ musicHandler('radio:play', async (list, index) => {
     screenArgs: mpvScreenArgs(),
     bindings: CONFIG.mpvBindings,
     help: mpvHelp('station'),
+    kind: 'station',
+    keepAwake: true, // (the logo or a visualiser is on screen)
     ...mpvCommon(),
+    ...mpvMusic(how, (i) => stations[i] && stations[i].logo),
     loadingText: (i) => `Tuning in to ${stations[i] ? stations[i].name : ''}…`,
     log, logFile: mpvLogFile(how),
     autoplay: true,
     // (The card waits until the station is playing, so it doesn't sit on the loading dots.)
     onFileStart: (i) => { playing = i; loaded = false; lastMeta = null; ctl.card(null); if (stations[i] && stations[i].uuid) radio.clicked(stations[i].uuid); },
-    onPlaying: () => { loaded = true; showCard(lastMeta); },
+    onPlaying: (i) => {
+      loaded = true; showCard(lastMeta);
+      // (Radio → Recently played: it's playing, so it works.)
+      const st = stations[i];
+      if (st) { CONFIG.radio.recent = [st, ...CONFIG.radio.recent.filter((x) => x.id !== st.id)].slice(0, 20); saveRadio(); }
+    },
     onMetadata: (meta) => { lastMeta = meta; if (loaded) showCard(meta); },
     onFileEnd: () => {}, onState: () => {},
     onMessage: (args) => { if (args[0] === 'tv-overlay-stop') confirmStop(sess, ctl, 'listening'); },
@@ -3374,12 +3546,21 @@ function cleanLive(l) {
     order: Array.isArray(l.order) ? l.order.filter((x) => typeof x === 'string') : [],
     merge: pairs(l.merge), split: pairs(l.split),
     favorites: Array.isArray(l.favorites) ? l.favorites.filter((x) => typeof x === 'string') : [],
+    recent: Array.isArray(l.recent) ? l.recent.filter((x) => typeof x === 'string').slice(0, 20) : [], // channels watched lately (a source of each), newest first
     hideBroken: l.hideBroken !== false, // hide channels that don't work (on by default)
     preferQuality: l.preferQuality !== false, // play a channel's sharpest copy first (on by default)
     iptvOrgAsked: l.iptvOrgAsked === true, // asked once whether to start with your country's channels
   };
 }
 const saveLive = () => saveUserConfig({ live: CONFIG.live });
+// A channel that played: first in Live → Recently watched (by its sources, which outlast its id).
+function rememberLiveChannel(c) {
+  const keys = (c && c.sources ? c.sources : []).map((s) => s.key).filter((k) => typeof k === 'string');
+  if (!keys.length) return;
+  CONFIG.live.recent = [keys[0], ...CONFIG.live.recent.filter((k) => !keys.includes(k))].slice(0, 20);
+  saveLive();
+  home?.webContents.send('live:changed');
+}
 
 // Every place channels come from, best first: your order from Settings, or by default your
 // Jellyfin servers, then lists.
@@ -3518,6 +3699,12 @@ function liveSummary(opts) {
       programmes: c.programmes.filter((p) => p.stop > now && p.start < now + 8 * LIVE_HOUR).slice(0, 6)
         .map((p, i) => (i === 0 && p.start <= now ? p : { start: p.start, stop: p.stop, title: p.title, sub: p.sub })),
     })),
+    // Recently watched, newest first: the whole channels (the guide arrives in pieces, and these
+    // may not be in the first).
+    recentChannels: (opts && opts.lite) ? undefined : (() => {
+      const rank = (c) => Math.min(...c.sources.map((s) => { const i = CONFIG.live.recent.indexOf(s.key); return i < 0 ? Infinity : i; }));
+      return visible.filter((c) => rank(c) < Infinity).sort((a, b) => rank(a) - rank(b)).map((c) => c.id);
+    })(),
     possible: live.possible.map(([a, b]) => ({ a: describe(a), b: describe(b) })).filter((p) => p.a && p.b).slice(0, 60),
     updatedAt: live.updatedAt,
     refreshing: Boolean(live.refreshing),
@@ -3618,6 +3805,55 @@ ipcMain.handle('live:pair', async (event, a, b, same) => {
   await rebuildLive();
   return liveSummary();
 });
+// Search: live channels by name, and programmes coming up in the guide by title (the next two
+// days). Words match from their start ("news" finds "BBC News", not "Newsround's").
+const liveWords = (s) => normTitle(s).split(' ').filter(Boolean);
+const liveMatch = (query) => {
+  const q = liveWords(query);
+  return (text) => {
+    const w = liveWords(text);
+    return q.length > 0 && q.every((x) => w.some((y) => y.startsWith(x)));
+  };
+};
+const liveCard = (c) => ({ id: c.id, name: c.name, number: c.number, logo: c.logo });
+ipcMain.handle('live:find', (event, query) => {
+  if (!fromHome(event)) return null;
+  const q = String(query || '').slice(0, 100);
+  if (liveWords(q).length === 0) return { channels: [], shows: [] };
+  const matches = liveMatch(q);
+  const now = Date.now();
+  const visible = CONFIG.live.hideBroken ? live.channels.filter((c) => !liveBroken(c)) : live.channels;
+  const channels = visible.filter((c) => matches(c.name)).slice(0, 20).map((c) => {
+    const on = c.programmes.find((p) => p.start <= now && p.stop > now);
+    return { ...liveCard(c), on: on ? on.title : '' };
+  });
+  const shows = [];
+  for (const c of visible) {
+    for (const p of c.programmes) {
+      if (p.stop <= now || p.start > now + 48 * LIVE_HOUR || !p.title || !matches(p.title)) continue;
+      shows.push({ ...liveCard(c), title: p.title, sub: p.sub || '', start: p.start, stop: p.stop });
+    }
+  }
+  shows.sort((a, b) => a.start - b.start);
+  return { channels, shows: shows.slice(0, 30) };
+});
+// A title's page: is it on a live channel now or soon (the same title, in the next two days)?
+ipcMain.handle('live:on-air', (event, title) => {
+  if (!fromHome(event)) return [];
+  const want = normTitle(String(title || '').slice(0, 200));
+  if (!want) return [];
+  const now = Date.now();
+  const visible = CONFIG.live.hideBroken ? live.channels.filter((c) => !liveBroken(c)) : live.channels;
+  const out = [];
+  for (const c of visible) {
+    for (const p of c.programmes) {
+      if (p.stop <= now || p.start > now + 48 * LIVE_HOUR || normTitle(p.title || '') !== want) continue;
+      out.push({ ...liveCard(c), title: p.title, start: p.start, stop: p.stop, now: p.start <= now });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start).slice(0, 8);
+});
+
 ipcMain.handle('live:play', async (event, ids, startId) => {
   if (!fromHome(event) || !Array.isArray(ids)) return { error: 'failed' };
   try { return await playLive(ids.map(String), String(startId)); } catch (err) { return { error: err.code || 'failed' }; }
@@ -3915,7 +4151,14 @@ function mpvLogFile(how) {
 
 // ---- Settings → Advanced → Gamescope fixes
 
+let saidListener = null;
 async function gamescopeState() {
+  const plugin = await gamescope.deckyPlugin();
+  const said = JSON.stringify(plugin);
+  if (said !== saidListener) {
+    saidListener = said;
+    log.info(`[gamescope] game mode: ${gamescope.inGameMode()}; plugin installed: ${plugin.installed}; "don't dim" answered by: ${plugin.listener ? `${plugin.listener.name}${plugin.listener.decky ? ' (inside Decky)' : ''}` : 'nothing'}`);
+  }
   return {
     ...CONFIG.gamescope,
     gameMode: gamescope.inGameMode(),
@@ -3925,7 +4168,7 @@ async function gamescopeState() {
     decky: gamescope.hasDecky(),
     python: Boolean(gamescope.PYTHON),
     uinput: gamescope.uinputOk(),
-    plugin: await gamescope.deckyPlugin(),
+    plugin,
   };
 }
 ipcMain.handle('gamescope:state', async (event) => (fromHome(event) ? gamescopeState() : null));
@@ -4089,6 +4332,7 @@ async function playLive(ids, startId) {
     onPlaying: (i) => {
       sayOnNow(sess, ctl, i);
       const c = sess.chans[i];
+      rememberLiveChannel(findChannel(c.id) || c);
       // It works: remember that (and forget any "doesn't work" from an earlier check).
       for (const s of (findChannel(c.id) || c).sources) if (s.play && s.play.type === 'url' && liveHealth[s.play.url] && liveHealth[s.play.url].ok === false && (sess.failed.get(c.id) || 0) === (findChannel(c.id) || c).sources.indexOf(s)) liveHealth[s.play.url] = { ok: true, at: Date.now() };
     },
@@ -4096,6 +4340,7 @@ async function playLive(ids, startId) {
     token: null, // never send the Jellyfin token to other places
     bindings: CONFIG.mpvBindings,
     help: mpvHelp('live'),
+    kind: 'live',
     ...mpvCommon(),
     keepAwake: true,
     autoplay: true,
@@ -4306,30 +4551,7 @@ app.whenReady().then(async () => {
     console.warn('[widevine] not the castLabs build of Electron: DRM video will not play.');
   }
   setupServiceSession();
-  protocol.handle('jfimg', async (request) => {
-    try {
-      const u = new URL(request.url);
-      const id = decodeURIComponent(u.hostname);
-      const server = CONFIG.jellyfinServers.find((s) => s.id === id && s.token) || plexServers().find((s) => s.id.toLowerCase() === id.toLowerCase()) ||
-        CONFIG.music.servers.find((s) => s.id === id);
-      if (server && server.type === 'subsonic') {
-        // (Navidrome: its cover picture, asked for with the sign-in out of sight.)
-        const m = /^\/Items\/([^/]+)\/Images\/Primary$/.exec(u.pathname);
-        if (!m) return new Response('', { status: 404 });
-        const r = await subsonic.cover(server, decodeURIComponent(m[1]), 500);
-        return new Response(r.body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') || 'image/jpeg' } });
-      }
-      const m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb)(\/0)?$/.exec(u.pathname);
-      if (!server || !m) return new Response('', { status: 404 });
-      // (Plex: the same kind of address, turned into Plex's picture resizer for that item.)
-      const r = server.type === 'plex'
-        ? await fetch(`${server.url}${plex.imagePath(decodeURIComponent(m[1]), m[2])}`, { headers: { 'X-Plex-Token': server.token, Accept: 'image/*' } })
-        : await fetch(`${server.url}${u.pathname}${u.search}`, { headers: { 'X-Emby-Token': server.token } });
-      return new Response(r.body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') || 'image/jpeg' } });
-    } catch {
-      return new Response('', { status: 502 });
-    }
-  });
+  protocol.handle('jfimg', (request) => serverImage(request.url));
   createWindow();
   // Live TV: last known channels straight away, then fresh ones (and every few hours).
   loadLiveHealth();
@@ -4341,4 +4563,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => app.quit());
-app.on('will-quit', () => { phone.stop(); pretendPerson.stop(); });
+app.on('will-quit', () => { phone.stop(); pretendPerson.stop(); forgetCovers(); });

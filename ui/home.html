@@ -248,6 +248,15 @@
       <div class="watch" id="d-watch"></div>
      </div>
      <div class="d-side">
+      <!-- (First on the right: Right from the title's side comes here) -->
+      <div class="elsewhere" id="d-trakt" hidden>
+        <p class="eyebrow">Trakt</p>
+        <div class="mini-row" id="d-trakt-row"></div>
+      </div>
+      <div class="elsewhere" id="d-live" hidden>
+        <p class="eyebrow">On your live TV channels</p>
+        <div class="mini-row" id="d-live-row"></div>
+      </div>
       <div class="elsewhere" id="d-other" hidden>
         <p class="eyebrow">Streaming on other services</p>
         <div class="mini-row" id="d-other-row"></div>
@@ -255,10 +264,6 @@
       <div class="elsewhere" id="d-elsewhere" hidden>
         <p class="eyebrow">Rent or buy</p>
         <div class="mini-row" id="d-elsewhere-row"></div>
-      </div>
-      <div class="elsewhere" id="d-trakt" hidden>
-        <p class="eyebrow">Trakt</p>
-        <div class="mini-row" id="d-trakt-row"></div>
       </div>
       <div class="elsewhere" id="d-free" hidden>
         <p class="eyebrow">Not listed? Search your free services</p>
@@ -269,6 +274,10 @@
         <span class="skeleton-line pill-ph" style="width: 8rem"></span><span class="skeleton-line pill-ph" style="width: 6rem"></span><span class="skeleton-line pill-ph" style="width: 9rem"></span>
         <span class="skeleton-line" style="width: 9rem"></span>
         <span class="skeleton-line pill-ph" style="width: 10rem"></span>
+      </div>
+      <div class="elsewhere" id="d-phone" hidden>
+        <p class="eyebrow">On your phone</p>
+        <div class="mini-row"><button class="pill" data-nav id="d-qr">Show QR codes <small>TMDB · IMDb</small></button></div>
       </div>
       <div class="elsewhere" id="d-yt" hidden>
         <p class="eyebrow">Find it on YouTube</p>
@@ -565,6 +574,13 @@
       </button>
       <p class="fine">Intros and credits can be skipped when your server has marked them (Jellyfin 10.10 or newer, usually with the Intro Skipper plugin).</p>
 
+      <p class="sub-label" data-group="Skipping">How far the skip buttons go in mpv</p>
+      <div class="seek-steps" id="pb-seek"></div>
+      <button class="pill toggle" data-nav id="pb-rewind">
+        <span>After a pause, carry on from a second earlier</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">Handy for catching the line you paused on. Which button does what is in Settings → Controller → In mpv.</p>
+
       <p class="sub-label" data-group="Still watching?">Ask "Are you still watching?"</p>
       <div class="segmented" id="sw-mode">
         <button class="pill" data-nav data-mode="off">Never</button>
@@ -601,6 +617,11 @@
         <span>Show SomaFM's channels</span><span class="switch" aria-hidden="true"></span>
       </button>
       <p class="fine">Stations come from Radio Browser, a free list kept by its listeners, and SomaFM. They play in mpv: ◀ and ▶ (previous and next) change station.</p>
+
+      <p class="sub-label" data-group="Pictures">What's on screen while music and radio play</p>
+      <p class="lede">The album's cover (or the station's logo), or a visualiser that moves with the music. <span id="mu-visual-how">While it plays, <strong id="mu-visual-button">R3</strong> changes it, and the one you end on is used next time.</span></p>
+      <div class="segmented" id="mu-visual"></div>
+      <p class="fine">Visualisers are drawn by your computer's processor: on a slow one (or to save a Steam Deck's battery), Album art, Waterfall and Spectrogram are the lightest.</p>
 
       <p class="sub-label" data-group="Music services">Your music services</p>
       <p class="lede">Each one you switch on gets a button on every album's page.</p>
@@ -754,6 +775,10 @@
         <button class="pill quiet" data-nav id="mpvb-reset">Reset mpv buttons to defaults</button>
       </div>
       <p class="note" id="mpvb-note"></p>
+      <button class="pill toggle" data-nav id="mpv-apppad">
+        <span>The app's menu and hold buttons in mpv</span><span class="switch" aria-hidden="true"></span>
+      </button>
+      <p class="fine">On: Start or ▲ opens a menu (playhead, subtitles, QR codes and more), and holding L2 or R2 makes ◀ ▶ skip further and ▲ ▼ change the volume (press both to lock). Off: mpv reads the controller itself, with just the buttons above.</p>
 
       <h2 class="section-title" data-group="Debug logging">Developer</h2>
       <p class="lede">The app keeps a log of what it does: handy when something doesn't work. Passwords, keys and sign-ins are never written to it.</p>
@@ -775,15 +800,16 @@
       <h2 class="section-title" data-group="Gamescope fixes">Advanced</h2>
       <p class="lede">For Steam's Game Mode (gamescope), where the screen dims or the computer sleeps in the middle of a film. While a film, show or live channel plays, the app tells the computer someone's watching, the standard way. Desktops listen for that; Steam's Game Mode doesn't.</p>
       <p class="status" id="gs-where"></p>
+      <p class="status" id="gs-other" hidden></p>
       <p class="sub-label">The tidy fix: Decky Loader with the DeckyInhibitScreenSaver plugin</p>
-      <p class="fine">Decky Loader adds plugins to Steam's Game Mode. The DeckyInhibitScreenSaver plugin adds the listener Game Mode is missing, so the app's "someone's watching" is heard: Steam's dimming and sleep are off while a film plays, and back on after. Install Decky Loader from <strong>decky.xyz</strong> (in Desktop Mode), then the plugin from <strong>github.com/xfangfang/DeckyInhibitScreenSaver</strong> (its Releases page), and switch on its Background Monitor. If you use that, leave the two fixes below off.</p>
+      <p class="fine">Decky Loader adds plugins to Steam's Game Mode. The DeckyInhibitScreenSaver plugin adds the listener Game Mode is missing, so the app's "someone's watching" is heard: Steam's dimming and sleep are off while something plays (films, live TV, music and radio), and back on after. Install Decky Loader from <strong>decky.xyz</strong> (in Desktop Mode), then the plugin from <strong>github.com/xfangfang/DeckyInhibitScreenSaver</strong> (its Releases page), and switch on its Background Monitor. If you use that, leave the two fixes below off.</p>
       <div class="actions">
         <button class="pill" data-nav id="gs-decky">Open decky.xyz</button>
         <button class="pill" data-nav id="gs-plugin">Open the plugin's page</button>
       </div>
       <p class="sub-label">Or let the app do it (experimental)</p>
       <button class="pill toggle" data-nav id="gs-steam">
-        <span>Turn Steam's dimming off while a film plays</span><span class="switch" aria-hidden="true"></span>
+        <span>Turn Steam's dimming off while something plays</span><span class="switch" aria-hidden="true"></span>
       </button>
       <p class="fine">What the plugin does, done by the app: while a picture plays, Steam's "dim after" and "sleep after" are set to never; when it stops or pauses, they go back to 5 and 10 minutes (Steam's usual times, not necessarily yours). To reach Steam's settings, the app opens Steam's debugging port, the way Decky Loader does; it opens the next time Steam starts, so restart Steam once. <strong>While that port is open, any program on this computer could control Steam, including your signed-in account.</strong> It also uses Steam's own internals, which a Steam update can change without warning.</p>
       <p class="status none" id="gs-plugin-note" hidden></p>
@@ -866,6 +892,19 @@
         <button class="watch-btn jellyfin" data-nav id="choose-resume"></button>
         <button class="watch-btn plain" data-nav id="choose-start">Start over</button>
       </div>
+    </div>
+  </section>
+
+  <!-- A title's TMDB and IMDb pages as QR codes, to open on your phone -->
+  <section class="screen" id="screen-qr" hidden>
+    <div class="choose qr-pages">
+      <p class="eyebrow">Open on your phone</p>
+      <h1 id="qr-title"></h1>
+      <div class="qr-pair" id="qr-pair"></div>
+      <div class="choose-buttons">
+        <button class="pill" data-nav id="qr-close">Done</button>
+      </div>
+      <p class="fine">Point your phone's camera at a code. B closes this.</p>
     </div>
   </section>
 

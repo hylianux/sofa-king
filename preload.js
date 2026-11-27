@@ -70,6 +70,7 @@ if (location.protocol === 'file:') {
     musicFolders: (id) => ipcRenderer.invoke('music:folders', String(id)),
     musicSetFolder: (id, folder, on) => ipcRenderer.invoke('music:set-folder', String(id), String(folder), Boolean(on)),
     musicSetService: (id, on) => ipcRenderer.invoke('music:set-service', String(id), Boolean(on)),
+    musicSetVisual: (id) => ipcRenderer.invoke('music:visual', String(id)),
     musicUse: (kind, on) => ipcRenderer.invoke('music:use', String(kind), Boolean(on)),
     onMusicChanged: listen('music:changed'),
     radioState: () => ipcRenderer.invoke('radio:state'),
@@ -85,6 +86,8 @@ if (location.protocol === 'file:') {
 
     // search (home page)
     search: (query) => ipcRenderer.invoke('tmdb:search', String(query)),
+    searchPage: (query, page) => ipcRenderer.invoke('tmdb:search-page', String(query), Number(page) || 1),
+    titleQr: (kind, id, imdbId) => ipcRenderer.invoke('tmdb:qr', String(kind), String(id), imdbId ? String(imdbId) : ''),
     person: (id) => ipcRenderer.invoke('tmdb:person', Number(id)),
     details: (kind, id) => ipcRenderer.invoke('tmdb:details', String(kind), Number(id)),
     home: () => ipcRenderer.invoke('tmdb:home'),
@@ -142,6 +145,8 @@ if (location.protocol === 'file:') {
     liveFavorite: (id, on) => ipcRenderer.invoke('live:favorite', String(id), Boolean(on)),
     livePair: (a, b, same) => ipcRenderer.invoke('live:pair', String(a), String(b), Boolean(same)),
     livePlay: (ids, startId) => ipcRenderer.invoke('live:play', ids.map(String), String(startId)),
+    liveFind: (query) => ipcRenderer.invoke('live:find', String(query || '')),
+    liveOnAir: (title) => ipcRenderer.invoke('live:on-air', String(title || '')),
     onLiveChanged: listen('live:changed'),
     iptvMeta: () => ipcRenderer.invoke('iptv:meta'),
     iptvSet: (type, code, on, name) => ipcRenderer.invoke('iptv:set', String(type), String(code), Boolean(on), String(name || '')),
@@ -449,7 +454,7 @@ function fire(action) {
       return ipcRenderer.send('pointer', { type: 'scroll', dir: action === 'scrollup' ? -1 : 1, x: at.x, y: at.y });
     }
   }
-  if (action === 'lclick' || action === 'rclick') return; // website-only buttons
+  // (On the app's own pages, L2 and R2 are page up and page down.)
   ipcRenderer.send('pad', action);
 }
 
@@ -488,10 +493,11 @@ function poll(time) {
     if (mpvFresh) { mpvFresh = false; for (const b of raw) mpvHeld.set(b, { since: time, last: time, old: true }); }
     for (const b of raw) {
       const h = mpvHeld.get(b);
-      if (!h) { mpvHeld.set(b, { since: time, last: time }); ipcRenderer.send('pad-raw', b); }
-      else if (!h.old && b >= 12 && b <= 15 && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) { h.last = time; ipcRenderer.send('pad-raw', b); }
+      if (!h) { mpvHeld.set(b, { since: time, last: time }); ipcRenderer.send('pad-raw', b, 'down'); }
+      else if (!h.old && b >= 12 && b <= 15 && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) { h.last = time; ipcRenderer.send('pad-raw', b, 'repeat'); }
     }
-    for (const b of [...mpvHeld.keys()]) if (!raw.has(b)) mpvHeld.delete(b);
+    // (Let go: the hold buttons need to know.)
+    for (const [b, h] of [...mpvHeld]) if (!raw.has(b)) { mpvHeld.delete(b); if (!h.old) ipcRenderer.send('pad-raw', b, 'up'); }
     // Back in the app afterwards: what's held now (B that stopped it, say) isn't a new press.
     held.clear();
     for (const action of active) held.set(action, { since: time, last: time });
@@ -541,7 +547,7 @@ function poll(time) {
         held.set(action, { since: time, last: time });
         holdChange(action, true);
         fire(action);
-      } else if (REPEATS.has(action) && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) {
+      } else if ((REPEATS.has(action) || (!IS_WEB && HOLDS.has(action))) && time - h.since > REPEAT_DELAY && time - h.last > REPEAT_RATE) {
         h.last = time;
         fire(action);
       }

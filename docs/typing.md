@@ -8,7 +8,7 @@ It comes up wherever there's something to type: search, naming things, and text 
 
 - **A** types the highlighted key, **X** deletes, **Y** types a space.
 - **Hold L2 or R2** for capitals and symbols. Press both together for caps lock.
-- **Start** is Done and **B** cancels. Both ask "are you sure?" first; Settings → Controller → On-screen keyboard can switch that off.
+- **Start** is Done and **B** cancels. Both ask "are you sure?" first (sending starts on *Yes*, cancelling on *No*); Settings → Controller → On-screen keyboard can switch that off.
 - **Suggestions** sit above the keys: press Up to reach them. They finish the word you're typing, and offer titles and your earlier searches. Settings → Controller → On-screen keyboard turns them off, or forgets your earlier searches.
 
 ## Typing on your phone

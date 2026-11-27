@@ -487,6 +487,16 @@ function renderMusicSettings(st) {
     b.dataset.service = s.id;
     return b;
   }));
+  // The picture while music plays.
+  const had = document.activeElement && document.activeElement.closest('#mu-visual') ? document.activeElement.dataset.visual : null;
+  $('mu-visual').replaceChildren(...(st.visuals || []).map((v) => {
+    const b = el('button', { class: `pill${v.id === st.visual ? ' chosen' : ''}`, nav: true, textContent: v.name, onclick: async () => { const r = await tv.musicSetVisual(v.id); if (r.ok) renderMusicSettings(r.ok); } });
+    b.dataset.visual = v.id;
+    return b;
+  }));
+  if (had) $('mu-visual').querySelector(`[data-visual="${had}"]`)?.focus();
+  $('mu-visual-how').hidden = !st.visualButton;
+  $('mu-visual-button').textContent = st.visualButton || '';
   $('mu-use-jellyfin').classList.toggle('on', st.useJellyfin);
   $('mu-use-plex').classList.toggle('on', st.usePlex);
   $('mu-use-jellyfin').hidden = !st.jellyfin;
@@ -697,6 +707,7 @@ async function addRadioShelf() {
 const RADIO_TABS = [
   { id: 'favorites', name: '★ Favourites' },
   { id: 'mine', name: 'Your stations' },
+  { id: 'recent', name: 'Recently played' },
   { id: 'popular', name: 'Popular' },
   { id: 'somafm', name: 'SomaFM' },
   { id: 'search', name: 'Search' },
@@ -749,8 +760,8 @@ async function showRadioTab(tab, { focusList = false } = {}) {
   if (seq !== radio.seq) return;
   if (r.error) { note.textContent = 'The station list isn\'t answering. Check your internet connection.'; return; }
   radio.list = r.ok;
-  note.textContent = r.ok.length ? ({ favorites: 'Your favourite stations. ☆ beside any station adds it here.', mine: 'Stations you added (Settings → Music → Radio).', popular: `The most played stations in ${(radio.state && radio.state.country) || 'your country'}.`, somafm: 'Listener-supported, ad-free channels from San Francisco.', search: `Stations matching “${radio.search}”.` }[tab] || '')
-    : ({ favorites: 'No favourites yet. Press ☆ beside a station to add it.', mine: 'Add your own in Settings → Music → Radio.', search: `Nothing found for “${radio.search}”.` }[tab] || 'Nothing here.');
+  note.textContent = r.ok.length ? ({ favorites: 'Your favourite stations. ☆ beside any station adds it here.', mine: 'Stations you added (Settings → Music → Radio).', recent: 'The stations you\'ve listened to lately, newest first.', popular: `The most played stations in ${(radio.state && radio.state.country) || 'your country'}.`, somafm: 'Listener-supported, ad-free channels from San Francisco.', search: `Stations matching “${radio.search}”.` }[tab] || '')
+    : ({ favorites: 'No favourites yet. Press ☆ beside a station to add it.', mine: 'Add your own in Settings → Music → Radio.', recent: 'Nothing yet: stations you listen to show up here.', search: `Nothing found for “${radio.search}”.` }[tab] || 'Nothing here.');
   listBox.replaceChildren(...r.ok.map((st, i) => radioRow(st, i)));
   if (focusList || tab === 'search') listBox.querySelector('.radio-st')?.focus();
 }

@@ -63,6 +63,7 @@ app.whenReady().then(async () => {
   await js("document.getElementById('gs-steam').click(); 0"); await wait(800);
   say('Steam fix on:', await st(), '| port file:', fs.existsSync(path.join(HOME, '.steam', 'steam', '.cef-enable-remote-debugging')));
   say('menu down the left:', await js("[...document.querySelectorAll('.s-panel[data-tab=\"advanced\"] .rail-item')].map((b) => b.textContent).join(', ')"), '| plugin note shown:', !(await js("document.getElementById('gs-plugin-note').hidden")));
+  say('no plugin, something else answers:', await js("[document.getElementById('gs-plugin-note').hidden ? '(no plugin note)' : 'PLUGIN NOTE: ' + document.getElementById('gs-plugin-note').textContent, document.getElementById('gs-other').hidden ? '(no other note)' : document.getElementById('gs-other').textContent].join(' | ')"));
   // The plugin installed: both fixes say they're not needed.
   const put = (p, o) => { fs.mkdirSync(path.dirname(path.join(HOME, p)), { recursive: true }); fs.writeFileSync(path.join(HOME, p), JSON.stringify(o)); };
   put('homebrew/plugins/ScreenSaver/plugin.json', { name: 'ScreenSaver', author: 'xfangfang' });

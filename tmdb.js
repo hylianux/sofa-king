@@ -82,8 +82,12 @@ function createTmdb({ getKey, getRegion, services, stores = [], log = { debug() 
   }
 
   async function search(query) {
-    const json = await get('/search/multi', { query, include_adult: 'false', language: 'en-US', page: '1' });
-    return json.results.map((r) => card(r)).filter(Boolean).slice(0, 30);
+    return (await searchPage(query, 1)).items.slice(0, 30);
+  }
+  // One page of results (TMDB gives 20 at a time): { items, more }.
+  async function searchPage(query, page = 1) {
+    const json = await get('/search/multi', { query, include_adult: 'false', language: 'en-US', page: String(page) });
+    return { items: json.results.map((r) => card(r)).filter(Boolean), more: page < Math.min(json.total_pages || 1, 25) };
   }
 
   async function person(id) {
@@ -381,7 +385,7 @@ function createTmdb({ getKey, getRegion, services, stores = [], log = { debug() 
 
   async function details(kind, id) {
     if (kind !== 'movie' && kind !== 'tv') throw Object.assign(new Error('Bad kind'), { code: 'failed' });
-    const d = await get(`/${kind}/${id}`, { language: 'en-US', append_to_response: 'watch/providers,credits' });
+    const d = await get(`/${kind}/${id}`, { language: 'en-US', append_to_response: 'watch/providers,credits,external_ids' });
     const region = getRegion();
     const where = (d['watch/providers'] && d['watch/providers'].results && d['watch/providers'].results[region]) || {};
     const names = (list) => (list || []).map((p) => p.provider_name);
@@ -446,6 +450,7 @@ function createTmdb({ getKey, getRegion, services, stores = [], log = { debug() 
       backdrop: d.backdrop_path || null,
       poster: d.poster_path || null,
       year: year(d.release_date || d.first_air_date),
+      imdbId: /^tt\d+$/.test(d.imdb_id || '') ? d.imdb_id : (d.external_ids && /^tt\d+$/.test(d.external_ids.imdb_id || '') ? d.external_ids.imdb_id : null),
       onServices,
       serviceHow,
       rentOnly,
@@ -456,7 +461,7 @@ function createTmdb({ getKey, getRegion, services, stores = [], log = { debug() 
 
   const genreArt = (id) => genrePage({ genre: id, kind: 'all', art: true }, 1).then((r) => r.art || null);
 
-  return { search, person, details, home, page, genreList, genreArt, seasonEpisodes, cards, validate, reset: () => cache.clear() };
+  return { search, searchPage, person, details, home, page, genreList, genreArt, seasonEpisodes, cards, validate, reset: () => cache.clear() };
 }
 
 module.exports = { createTmdb };

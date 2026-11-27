@@ -1077,7 +1077,13 @@ body {
 
 /* ------------------------------------------------------------ resume or start over */
 
-#screen-choose, #screen-slots, #screen-update { display: grid; place-items: center; }
+#screen-choose, #screen-slots, #screen-update, #screen-qr { display: grid; place-items: center; }
+.qr-pair { display: flex; gap: 3rem; justify-content: center; margin: 0 0 2rem; }
+.qr-pair figure { margin: 0; text-align: center; }
+.qr-pair .qr { width: 15rem; aspect-ratio: 1; padding: 0.6rem; border-radius: 16px; background: #fff; }
+.qr-pair .qr svg { display: block; width: 100%; height: 100%; }
+.qr-pair figcaption { margin-top: 0.8rem; font-size: 1.3rem; font-weight: 700; }
+.qr-pair figcaption small { display: block; margin-top: 0.2rem; font-size: 0.8rem; font-weight: 500; color: var(--faint); }
 .choose { text-align: center; }
 .choose h1 { margin: 0.4rem 0 2rem; font-size: 2.6rem; font-weight: 800; }
 .choose-buttons { display: flex; gap: 1rem; justify-content: center; }
@@ -1093,6 +1099,9 @@ body {
 .stepper .pill { width: 3.2rem; height: 3rem; padding: 0; text-align: center; font-size: 1.5rem; }
 .stepper span { min-width: 11rem; text-align: center; font-size: 1.15rem; font-weight: 600; }
 .stepper[hidden] { display: none !important; }
+/* Settings → Servers → Skipping: one line per skip button, its name then − amount +. */
+.seek-steps .stepper .seek-what { min-width: 15rem; text-align: left; font-weight: 500; }
+.seek-steps .stepper { margin-bottom: 0.5rem; }
 
 /* ------------------------------------------------------------ detail: everywhere else */
 
@@ -1760,6 +1769,9 @@ body:not(.big-cards) :where(#screen-home) .searchbar { margin-bottom: 1.6rem; pa
 }
 
 /* Search results in music mode: a heading over each kind. */
+/* Live channels in search: the logo shown whole on a dark tile, not cropped like a poster. */
+.results .live-result .poster.live-logo { background: #15151c; display: grid; place-items: center; aspect-ratio: 1; height: auto; }
+.results .live-result .poster.live-logo img { object-fit: contain; padding: 18%; }
 .results .results-head { grid-column: 1 / -1; margin: 0.6rem 0 -0.6rem; font-size: 1.3rem; font-weight: 700; color: var(--accent); }
 .results .m-card { width: auto; }
 

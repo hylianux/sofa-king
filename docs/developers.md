@@ -26,6 +26,9 @@ On first launch Widevine downloads in the background. The terminal prints `[wide
 - `tmdb.js` – TMDB search, people, where-to-watch, rows, genres and suggestions
 - `phone.js` – the phone remote: a small local web server and the page your phone sees
 - `firewall.js` – spots a firewall blocking the remote and opens it for your home network, with permission
+- `visuals.js` – the pictures while music plays: ffmpeg filter graphs mpv runs as its lavfi-complex
+- `mpvcontrols.js` – the controller in mpv, read by the app: the menu along the bottom, the hold buttons (L2/R2), and plain presses
+- `osd.js` – drawing shapes and text on mpv's screen (shared by the button panel and the menu)
 - `gamescope.js` – fixes for Steam's Game Mode dimming during films (Settings → Advanced): Steam's dim and sleep times through its debugging port, and a pretend controller or keyboard through uinput
 - `jellyfin.js` – finding Jellyfin servers, signing in, checking libraries, and telling Jellyfin Desktop what to show
 - `plex.js` – Plex: signing in with a code, finding servers, rows, matching titles, the library, episodes, and playback reports (answering in the same shapes as `jellyfin.js`)

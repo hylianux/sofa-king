@@ -4,7 +4,9 @@
 
 ## Search and title pages
 
-Results update as you type: films, shows and people. Pick a person to see what else they're in.
+Results update as you type: films, shows and people. Pick a person to see what else they're in. More results load as you go down the list.
+
+Your live TV channels are searched too: **Live channels** whose names match, and **On your live channels** for programmes in the next two days whose titles match. Choosing one tunes in (a programme that hasn't started yet says when it does).
 
 A title's page shows where you can watch it:
 
@@ -12,6 +14,8 @@ A title's page shows where you can watch it:
 - Other services and stores are listed underneath, and **Also available** lists everywhere else.
 - **Not listed? Search your free services** tries Tubi, Pluto TV, The Roku Channel and the rest anyway, since the listings for free services are often incomplete.
 - **Find it on YouTube** searches YouTube for the title.
+- **Show QR codes** (under *On your phone*): the title's TMDB and IMDb pages as QR codes, to open on your phone.
+- **On your live TV channels**: the same title on one of your live channels, now or in the next two days. Choosing one that's on now tunes in.
 
 Pressing a service opens its own search for the title. Which services you have is set in `services.json`.
 
@@ -33,6 +37,6 @@ The listings often miss titles on Tubi, Pluto TV and other free services. A free
 
 Trakt keeps track of what you watch, wherever you watch it, and suggests what's next. **Settings → General → Trakt → Set up Trakt** guides you through it in three steps: an account, a "developer app" on your account (Trakt requires one, and asks you to connect a free GitHub account first), then signing in with a code.
 
-Once it's connected, Home gets **Your Trakt watchlist** and **Recommended for you**, and title pages get **Add to watchlist**. **Tell Trakt what I watch in mpv** is off by default. Leave it off if Jellyfin's Trakt plugin already does this, or plays count twice.
+Once it's connected, Home gets **Your Trakt watchlist** and **Recommended for you**, and title pages get **Add to watchlist** and **Mark as watched** at the top of the right-hand side (Right from **Watch on** goes straight there). **Tell Trakt what I watch in mpv** is off by default. Leave it off if Jellyfin's Trakt plugin already does this, or plays count twice.
 
 Free Trakt accounts can have one connected app at a time.

@@ -18,7 +18,23 @@ Music works the way films do: find an artist, album or song, then see where you 
 - **Folders:** which of a server's libraries to use (none picked means all of them). To leave a pile of unsorted music out, make it a separate library on the server and don't pick it.
 - **Music services:** which services get a button on album pages, and whether your Jellyfin and Plex music shows.
 - **Recommendations:** your ListenBrainz name, for *Made for you*. *Related artists* come from ListenBrainz with no setup, or from Last.fm if you add a free Last.fm key (*Set up Last.fm* walks you through it).
+- **Pictures:** what's on screen while music and radio play (see below).
 - **Artist pages:** switch off any of the slower shelves.
+
+## Pictures while music plays
+
+While songs and stations play, the screen shows the album's cover (or the station's logo) or a visualiser that moves with the music, with what's playing written on it. **R3** (press the right stick) changes the picture, and the one you end on is used next time. You can also pick it in **Settings → Music → Pictures**.
+
+- **Album art:** the cover, big, over a blurred copy of itself, with soft light rising from the bottom.
+- **Light bars:** bars of light for each note, mirrored in a glossy floor.
+- **Waterfall:** notes fall down the screen like a piano roll as they're played.
+- **Laser:** the left and right channels drawn against each other, leaving glowing trails.
+- **Waves:** the sound wave itself, glowing.
+- **Kaleidoscope:** the laser folded four ways, slowly turning.
+- **Spectrogram:** the sound as heat, scrolling sideways.
+- **Off:** black, with just what's playing.
+
+Most of them have the blurred cover behind them too. mpv draws them with your computer's processor: on a slow computer (or to save a Steam Deck's battery), Album art, Waterfall and Spectrogram are the lightest. Songs with their own video (music videos) show that instead.
 
 ## Scrobbling to Last.fm
 
@@ -38,7 +54,7 @@ A song counts once you've heard half of it or four minutes of it, whichever come
 
 ## Radio
 
-*All stations* on the Music tab's Radio shelf opens the Radio screen: *Favourites*, *Your stations*, *Popular* in your country, *SomaFM*, *Search* and *Country*. ☆ beside a station makes it a favourite.
+*All stations* on the Music tab's Radio shelf opens the Radio screen: *Favourites*, *Your stations*, *Recently played* (newest first), *Popular* in your country, *SomaFM*, *Search* and *Country*. ☆ beside a station makes it a favourite.
 
 Stations play in mpv. Previous and next move between stations, and the screen shows the song playing if the station sends it. Press B twice to stop.
 
