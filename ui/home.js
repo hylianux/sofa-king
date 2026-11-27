@@ -2837,7 +2837,8 @@ function renderLive(st, { focus = false, keep = false } = {}) {
   const groups = liveGroups(st);
   if (!groups.some((g) => g.id === live.group)) live.group = groups[0].id;
   const focusedId = document.activeElement && document.activeElement.closest('.live-row')?.dataset.id;
-  const onFav = document.activeElement && document.activeElement.classList.contains('live-fav');
+  const focusedCol = focusedId ? liveCol(document.activeElement) : null;
+  const onClear = document.activeElement && document.activeElement.id === 'live-clear';
   const groupFocused = $('live-groups').contains(document.activeElement);
   const onGroup = groupFocused ? document.activeElement.dataset.group : null;
 
@@ -2898,12 +2899,18 @@ function renderLive(st, { focus = false, keep = false } = {}) {
   const focusAt = focusedId ? shown.findIndex((c) => c.id === focusedId) : -1;
   const first = Math.max(60, Math.ceil((scroll + list.clientHeight * 2) / 64), focusAt + 20);
   list.replaceChildren();
+  // Recently watched: a way to clear the lot (after asking), above the channels.
+  if (live.group === 'recent') {
+    list.append(el('div', { class: 'live-tools' }, el('button', { class: 'pill quiet', id: 'live-clear', nav: true, textContent: 'Clear all', onclick: clearRecentLive })));
+  }
   addLiveRows(list, shown.slice(0, first).map((c) => liveRow(c, shown)));
   setTimeout(() => more(first), 0);
   list.scrollTop = scroll;
   if (keep && focusedId) {
     const row = list.querySelector(`.live-row[data-id="${CSS.escape(focusedId)}"]`);
-    if (row) (onFav ? row.querySelector('.live-fav') : row.querySelector('.live-ch')).focus();
+    if (row) (row.querySelector(focusedCol) || row.querySelector('.live-ch')).focus();
+  } else if (keep && onClear && $('live-clear')) {
+    $('live-clear').focus();
   } else if (keep && groupFocused && !$('live-groups').contains(document.activeElement)) {
     ($('live-groups').querySelector(`[data-group="${CSS.escape(onGroup || '')}"]`) || $('live-groups').querySelector('.chosen'))?.focus();
   }
@@ -2917,14 +2924,14 @@ function renderLive(st, { focus = false, keep = false } = {}) {
 // comes into view.
 const LIVE_BLOCK = 40;
 function addLiveRows(list, rows) {
-  let block = list.lastElementChild;
+  let block = isBlock(list.lastElementChild);
   while (rows.length) {
     if (!block || block.childElementCount >= LIVE_BLOCK) {
       block = el('div', { class: 'live-block' });
       block.addEventListener('contentvisibilityautostatechange', (e) => { if (!e.skipped) showLogos(block); });
       list.append(block);
       // (The first blocks are on screen straight away.)
-      if (list.childElementCount <= 2) requestAnimationFrame(() => showLogos(block));
+      if (list.querySelectorAll(':scope > .live-block').length <= 2) requestAnimationFrame(() => showLogos(block));
     }
     block.append(...rows.splice(0, LIVE_BLOCK - block.childElementCount));
     if (block.dataset.seen) showLogos(block);
@@ -2936,8 +2943,10 @@ function showLogos(block) {
 }
 const liveRowCount = () => $('live-list').querySelectorAll('.live-row').length;
 // The row above or below, across blocks.
-const rowAfter = (row) => row.nextElementSibling || row.parentElement.nextElementSibling?.firstElementChild || null;
-const rowBefore = (row) => row.previousElementSibling || row.parentElement.previousElementSibling?.lastElementChild || null;
+// (Only blocks of channels count: Recently watched's Clear all sits above them.)
+const isBlock = (b) => (b && b.classList.contains('live-block') ? b : null);
+const rowAfter = (row) => row.nextElementSibling || isBlock(row.parentElement.nextElementSibling)?.firstElementChild || null;
+const rowBefore = (row) => row.previousElementSibling || isBlock(row.parentElement.previousElementSibling)?.lastElementChild || null;
 
 // What's on now, per channel: a change means that row needs redrawing.
 function liveNowKey(c) {
@@ -2969,7 +2978,9 @@ document.addEventListener('keydown', (e) => {
   if (window.tvSound) window.tvSound('move');
 }, true);
 
-// Left and right along a row: the channel and its ☆, nothing further (measuring every button in a
+// Which button of a row you're on (the channel, ☆ or ✕), to stay in line going up and down.
+const liveCol = (btn) => (btn.classList.contains('live-x') ? '.live-x' : btn.classList.contains('live-fav') ? '.live-fav:not(.live-x)' : '.live-ch');
+// Left and right along a row: the channel, its ☆ (and ✕), nothing further (measuring every button in a
 // big guide to find the one beside you took a moment of its own).
 document.addEventListener('keydown', (e) => {
   if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || view !== 'live' || screen !== 'home') return;
@@ -2977,8 +2988,7 @@ document.addEventListener('keydown', (e) => {
   const row = btn && btn.closest('#live-list .live-row');
   if (!row) return;
   e.preventDefault(); e.stopImmediatePropagation();
-  const to = e.key === 'ArrowRight' && btn.classList.contains('live-ch') ? row.querySelector('.live-fav')
-    : e.key === 'ArrowLeft' && btn.classList.contains('live-fav') ? row.querySelector('.live-ch') : null;
+  const to = e.key === 'ArrowRight' ? btn.nextElementSibling : btn.previousElementSibling;
   if (!to) return;
   to.focus({ preventScroll: true });
   if (window.tvSound) window.tvSound('move');
@@ -2986,12 +2996,25 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keydown', (e) => {
   if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || view !== 'live' || screen !== 'home') return;
   const btn = document.activeElement;
+  // Recently watched's Clear all, above the channels: up to the categories, down into the list.
+  if (btn && btn.id === 'live-clear') {
+    e.preventDefault(); e.stopImmediatePropagation();
+    const to = e.key === 'ArrowUp' ? $('live-groups').querySelector('.chosen') : $('live-list').querySelector('.live-row .live-x');
+    if (to) { to.focus(); if (window.tvSound) window.tvSound('move'); }
+    return;
+  }
   const row = btn && btn.closest('#live-list .live-row');
   if (!row) return;
   const next = e.key === 'ArrowDown' ? rowAfter(row) : rowBefore(row);
+  if (!next && e.key === 'ArrowUp' && $('live-clear')) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    $('live-clear').focus(); $('live-list').scrollTop = 0;
+    if (window.tvSound) window.tvSound('move');
+    return;
+  }
   if (!next) return; // the top or bottom: the usual way (up to the categories)
   e.preventDefault(); e.stopImmediatePropagation();
-  const target = next.querySelector(btn.classList.contains('live-fav') ? '.live-fav' : '.live-ch');
+  const target = next.querySelector(liveCol(btn)) || next.querySelector('.live-ch');
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: 'nearest' });
   if (window.tvSound) window.tvSound('move');
@@ -3013,7 +3036,7 @@ document.addEventListener('keydown', (e) => {
     const at = Array.prototype.indexOf.call(rows, row);
     const to = rows[Math.max(0, Math.min(rows.length - 1, at + dir * per))];
     if (!to || to === row) return;
-    const t = to.querySelector(a.classList.contains('live-fav') ? '.live-fav' : '.live-ch');
+    const t = to.querySelector(liveCol(a)) || to.querySelector('.live-ch');
     t.focus({ preventScroll: true });
     t.scrollIntoView({ block: dir > 0 ? 'end' : 'start' });
     if (window.tvSound) window.tvSound('move');
@@ -3095,9 +3118,35 @@ function liveRow(c, shown) {
   });
   fav.addEventListener('focus', () => liveInfo(c));
   const row = el('div', { class: 'live-row' }, ch, fav);
+  // In Recently watched, ✕ takes it off the list.
+  if (live.group === 'recent') {
+    const x = el('button', { class: 'live-fav live-x', nav: true, textContent: '✕', title: 'Take it off this list', 'aria-label': `Take ${c.name} off this list` });
+    x.addEventListener('focus', () => liveInfo(c));
+    x.addEventListener('click', async () => {
+      // Stay where you were: the next channel's ✕, or the one before.
+      const near = (rowAfter(row) || rowBefore(row))?.dataset.id;
+      const st = await tv.liveRecentRemove(c.id);
+      if (!st) return;
+      toast(`Took ${c.name} off Recently watched.`, 3000);
+      renderLive(st, { keep: true });
+      const to = near && $('live-list').querySelector(`.live-row[data-id="${CSS.escape(near)}"] .live-x`);
+      (to || $('live-groups').querySelector('.chosen'))?.focus();
+    });
+    row.append(x);
+  }
   row.dataset.row = '';
   row.dataset.id = c.id;
   return row;
+}
+
+async function clearRecentLive() {
+  const ok = await askSure({ eyebrow: 'Live TV', title: 'Clear your recently watched channels?', yes: 'Yes, clear them', no: 'No, keep them', fine: 'Your favourites stay as they are.' });
+  if (!ok) return;
+  const st = await tv.liveRecentClear();
+  if (!st) { toast('Couldn\'t clear them. Try again.', 3000); return; }
+  toast('Cleared your recently watched channels.', 3000);
+  renderLive(st);
+  $('live-groups').querySelector('.chosen')?.focus();
 }
 
 const initials = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 3).map((w) => w[0]).join('').toUpperCase();

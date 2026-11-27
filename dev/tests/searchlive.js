@@ -27,7 +27,7 @@ fs.writeFileSync(path.join(UD, 'config.json'), JSON.stringify({
   jellyfinServers: [{ id: 'srv-living-room', name: 'Living Room', url: 'http://localhost:8096', userId: 'user-1', userName: 'hylianux', token: 'tok-123' }],
   trakt: { clientId: 'cid', clientSecret: 'csec', accessToken: 'trakt-at', refreshToken: 'trakt-rt', expiresAt: Date.now() + 864e5, username: 'tester', rows: false },
   jellyfinPlayer: 'mpv', playback: { confirmStop: false, rewindOnResume: true },
-  live: { iptvOrgAsked: true, lists: [{ id: 'mine', name: 'My list', m3u: 'http://127.0.0.1:5601/list.m3u', guide: 'http://127.0.0.1:5601/guide.xml' }] },
+  live: { iptvOrgAsked: true, recent: ['list:mine:ch5', 'list:mine:ch9'], lists: [{ id: 'mine', name: 'My list', m3u: 'http://127.0.0.1:5601/list.m3u', guide: 'http://127.0.0.1:5601/guide.xml' }] },
 }));
 // Pretend TMDB: three pages of 20 for any search.
 let uid = 1000;
@@ -181,5 +181,29 @@ app.whenReady().then(async () => {
   await key('Down'); const down = await js("document.activeElement.className");
   say('categories, Right x10:', seen.join(' > '), '| Up:', up, '| B:', b, '| Left at the start:', left, '| Down:', down,
     seen.at(-1) === 'G4' && seen.at(-2) === 'G4' && up === 'G4' && /^All/.test(b) && /^All/.test(left) && /live-ch/.test(down) ? 'PASS' : 'FAIL');
+  // Recently watched: ✕ takes one off (the highlight moves to the next ✕), Clear all asks first.
+  await js("[...document.querySelectorAll('#live-groups .pill')].find((b) => b.textContent === 'Recently watched').click(); 0"); await wait(800);
+  const recentNames = () => js("[...document.querySelectorAll('#live-list .live-row .ch-name')].map((x) => x.firstChild.textContent).join(' / ')");
+  const rw0 = await recentNames();
+  await js("document.querySelector('#live-list .live-row .live-ch').focus(); 0");
+  await key('Right'); await key('Right'); const onX = await js("document.activeElement.className");
+  await key('Right'); const stillX = await js("document.activeElement.className");
+  await key('Down'); await key('Up'); const xCol = await js("document.activeElement.className");
+  require('electron').ipcMain.emit('pad', { sender: wc }, 'ok'); await wait(1500);
+  const rw1 = await recentNames();
+  const focus1 = await js("document.activeElement.className + ' on ' + (document.activeElement.closest('.live-row') || {}).dataset?.id");
+  say(`✕ in Recently watched: ${rw0} → ${rw1} | Right twice: ${onX}, again: ${stillX}, down+up: ${xCol} | then on: ${focus1}`,
+    /live-x/.test(onX) && /live-x/.test(stillX) && /live-x/.test(xCol) && !/Film Four/.test(rw1) && /BBC News/.test(rw1) && /live-x/.test(focus1) ? 'PASS' : 'FAIL');
+  await key('Up'); const up1 = await js("document.activeElement.id || document.activeElement.className");
+  await js("document.getElementById('live-clear').click(); 0"); await wait(600);
+  const asked = await js("screen + ': ' + document.getElementById('sure-title').textContent + ' | on: ' + document.activeElement.textContent");
+  await key('Escape'); await wait(600);
+  const kept = await recentNames();
+  await js("document.getElementById('live-clear').click(); 0"); await wait(600);
+  await js("document.getElementById('sure-yes').click(); 0"); await wait(1500);
+  const cfgL = JSON.parse(fs.readFileSync(path.join(UD, 'config.json'), 'utf8')).live.recent;
+  const groupsAfter = await js("[...document.querySelectorAll('#live-groups .pill')].map((b) => b.textContent).join(' / ')");
+  say(`Up from the top: ${up1} | Clear all asks: ${asked} | B keeps: ${kept === rw1} | Yes: saved ${JSON.stringify(cfgL)}, categories now ${groupsAfter.slice(0, 50)} | focus: ${await js("document.activeElement.textContent")}`,
+    up1 === 'live-clear' && /^sure: .*No, keep them$/.test(asked) && kept === rw1 && cfgL.length === 0 && !/Recently watched/.test(groupsAfter) ? 'PASS' : 'FAIL');
   app.exit(0);
 });

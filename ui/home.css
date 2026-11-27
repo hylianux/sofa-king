@@ -1186,6 +1186,7 @@ body {
 .live-list { min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 0.45rem; padding: 0.5rem; margin: -0.5rem; }
 
 .live-row { display: flex; gap: 0.45rem; flex: none; }
+.live-tools { display: flex; justify-content: flex-end; margin: 0 0 0.6rem; }
 /* Blocks of 40 rows off screen aren't laid out or drawn until they scroll into view: a guide of
    thousands of channels costs little more than the few on screen. (The size stands in for a block
    until then.) */

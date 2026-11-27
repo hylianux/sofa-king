@@ -144,6 +144,8 @@ if (location.protocol === 'file:') {
     liveRemove: (id) => ipcRenderer.invoke('live:remove', String(id)),
     liveMove: (id, dir) => ipcRenderer.invoke('live:move', String(id), Number(dir)),
     liveUseJellyfin: (on) => ipcRenderer.invoke('live:use-jellyfin', Boolean(on)),
+    liveRecentRemove: (id) => ipcRenderer.invoke('live:recent-remove', String(id)),
+    liveRecentClear: () => ipcRenderer.invoke('live:recent-clear'),
     liveFavorite: (id, on) => ipcRenderer.invoke('live:favorite', String(id), Boolean(on)),
     livePair: (a, b, same) => ipcRenderer.invoke('live:pair', String(a), String(b), Boolean(same)),
     livePlay: (ids, startId) => ipcRenderer.invoke('live:play', ids.map(String), String(startId)),

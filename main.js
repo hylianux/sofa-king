@@ -3804,6 +3804,23 @@ ipcMain.handle('live:favorite', (event, id, on) => {
   saveLive();
   return liveSummary();
 });
+// Live → Recently watched: take one channel off (all its sources), or clear the lot.
+ipcMain.handle('live:recent-remove', (event, id) => {
+  if (!fromHome(event)) return null;
+  const c = findChannel(String(id));
+  if (c) {
+    const keys = c.sources.map((s) => s.key);
+    CONFIG.live.recent = CONFIG.live.recent.filter((k) => !keys.includes(k));
+    saveLive();
+  }
+  return liveSummary();
+});
+ipcMain.handle('live:recent-clear', (event) => {
+  if (!fromHome(event)) return null;
+  CONFIG.live.recent = [];
+  saveLive();
+  return liveSummary();
+});
 // Your call on a possible duplicate: the same channel, or two different ones.
 ipcMain.handle('live:pair', async (event, a, b, same) => {
   if (!fromHome(event)) return null;
