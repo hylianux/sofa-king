@@ -54,6 +54,7 @@ On first launch Widevine downloads in the background. The terminal prints `[wide
 - `services.json` – the service list
 - `stores.json` – rent-or-buy stores, so every *Also available* entry opens somewhere
 - `config.example.json` – optional manual config
+- `site/` – the website (GitHub Pages, published by `.github/workflows/pages.yml` when it changes); `dev/site-shots.js` takes its screenshots with made-up films and channels (they come out as PNG in `site/shots/`; convert them to WebP at 1600 wide)
 
 ## Tests
 
