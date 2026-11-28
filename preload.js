@@ -350,6 +350,54 @@ function captureButton() {
 // Using the D-pad (or a few idle seconds) hides it again.
 
 const IS_WEB = location.protocol === 'http:' || location.protocol === 'https:';
+
+// Dolby sound (AC-3, E-AC-3, AC-4): Chromium here says it can play it, but has no decoder for it,
+// so a site that picks its Dolby track fails as the sound starts (Hulu's "Error playing video",
+// RUNUNK13: "audio decoder initialization failed"). Websites are told the truth before their own
+// scripts run, so they send their ordinary (AAC) sound instead.
+if (IS_WEB && contextBridge.executeInMainWorld) {
+  try {
+    contextBridge.executeInMainWorld({
+      func: () => {
+        const DOLBY = /(^|[^a-z0-9])(ac-3|ec-3|ac-4|eac3|ac3|mp4a\.a5|mp4a\.a6)([^a-z0-9]|$)/i;
+        const dolby = (t) => DOLBY.test(String(t || ''));
+        const wrap = (obj, name, make) => {
+          if (!obj || typeof obj[name] !== 'function') return;
+          const orig = obj[name];
+          const fn = make(orig);
+          Object.defineProperty(fn, 'name', { value: name });
+          Object.defineProperty(fn, 'toString', { value: () => orig.toString() });
+          obj[name] = fn;
+        };
+        for (const MS of [window.MediaSource, window.ManagedMediaSource, window.WebKitMediaSource]) {
+          if (MS) wrap(MS, 'isTypeSupported', (orig) => function (t) { return dolby(t) ? false : orig.call(this, t); });
+        }
+        wrap(HTMLMediaElement.prototype, 'canPlayType', (orig) => function (t) { return dolby(t) ? '' : orig.call(this, t); });
+        if (navigator.mediaCapabilities) {
+          wrap(navigator.mediaCapabilities, 'decodingInfo', (orig) => function (cfg) {
+            if (cfg && cfg.audio && dolby(cfg.audio.contentType)) return Promise.resolve({ supported: false, smooth: false, powerEfficient: false, configuration: cfg });
+            return orig.call(this, cfg);
+          });
+        }
+        // Widevine's own question: leave Dolby out of the sounds asked for (and a set that asked
+        // only for Dolby is dropped, as Chromium would if it were honest).
+        wrap(navigator, 'requestMediaKeySystemAccess', (orig) => function (keySystem, configs) {
+          let list = configs;
+          try {
+            list = Array.from(configs || []).map((c) => {
+              if (!c || !Array.isArray(c.audioCapabilities) || !c.audioCapabilities.length) return c;
+              const audio = c.audioCapabilities.filter((a) => !dolby(a && a.contentType));
+              return audio.length ? { ...c, audioCapabilities: audio } : null;
+            }).filter(Boolean);
+          } catch { list = configs; }
+          if (!list.length) return Promise.reject(new DOMException('Unsupported keySystem or supportedConfigurations.', 'NotSupportedError'));
+          return orig.call(this, keySystem, list);
+        });
+      },
+    });
+  } catch { /* an older Electron: sites keep their own choice */ }
+}
+
 const DEADZONE = 0.18;
 const MAX_SPEED = 1500; // px per second at full tilt
 const HIDE_AFTER = 5000;

@@ -30,6 +30,16 @@ app.whenReady().then(async () => {
   check('Widevine probe logged', media.some((l) => /Widevine here: SW_SECURE_CRYPTO/.test(l)));
   check('player error logged', media.some((l) => /player error/.test(l)));
   check('nothing after ? in the log', !/SECRET123/.test(logText));
+  // Dolby sound: the site is told it can't play it (Chromium here has no decoder), AAC still yes.
+  const svc = BaseWindow.getAllWindows()[0].contentView.children.map((v) => v.webContents).find((w) => /hulu\.com/.test(w.getURL()));
+  const said = svc ? await svc.executeJavaScript(`(async () => {
+    const t = (c) => 'audio/mp4; codecs="' + c + '"';
+    const eme = async (c) => navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{ initDataTypes: ['cenc'], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.4d401f"' }], audioCapabilities: [{ contentType: t(c) }] }]).then(() => 'yes', () => 'no');
+    const mc = async (c) => (await navigator.mediaCapabilities.decodingInfo({ type: 'media-source', audio: { contentType: t(c), channels: '6', bitrate: 384000, samplerate: 48000 } })).supported;
+    return [MediaSource.isTypeSupported(t('ec-3')), MediaSource.isTypeSupported(t('ac-3')), document.createElement('video').canPlayType(t('ec-3')), await mc('ec-3'), await eme('ec-3'),
+            MediaSource.isTypeSupported(t('mp4a.40.2')), await mc('mp4a.40.2'), await eme('mp4a.40.2'), MediaSource.isTypeSupported.toString().includes('native')].join(' ');
+  })()`) : 'no hulu page';
+  check('Dolby: no, AAC: yes, and it looks untouched', said === 'false false  false no true true yes true', said);
   fs.writeFileSync(path.join(__dirname, 'out', 'medialog.txt'), results.join('\n') + '\n\n' + media.join('\n') + '\n');
   app.exit(0);
 });
