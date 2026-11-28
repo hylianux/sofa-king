@@ -27,6 +27,7 @@ On first launch Widevine downloads in the background. The terminal prints `[wide
 - `phone.js` – the phone remote: a small local web server and the page your phone sees
 - `firewall.js` – spots a firewall blocking the remote and opens it for your home network, with permission
 - `visuals.js` – the pictures while music plays: ffmpeg filter graphs mpv runs as its lavfi-complex
+- `medialog.js` – with debug logging on, `[media]` lines about a website's video: the player's errors, the site's DRM messages, what Widevine here supports, and licence requests (addresses cut at `?`)
 - `mpvcontrols.js` – the controller in mpv, read by the app: the menu along the bottom (any button) and the trigger menu (L2/R2 held, or locked)
 - `osd.js` – drawing shapes and text on mpv's screen (shared by the button panel and the menu)
 - `gamescope.js` – fixes for Steam's Game Mode dimming during films (Settings → Advanced): Steam's dim and sleep times through its debugging port, and a pretend controller or keyboard through uinput

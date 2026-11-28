@@ -17,6 +17,6 @@ If something goes wrong, the log helps. It's at `~/.config/sofa-king/logs/sofa-k
 
 **Settings → Developer:**
 
-- **Debug logging** adds much more detail.
+- **Debug logging** adds much more detail. With it on, when a website's video won't play (Hulu's "Error playing video", say), the log also says why: what the site's player complained about, what the copy protection on this computer can do, and how the site's licence server answered. Switch it on *before* opening the website.
 - **Get the log on my phone** shows a code to scan, which downloads the log as a text file.
 - **Clear the log** empties it.

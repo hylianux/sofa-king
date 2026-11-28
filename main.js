@@ -17,6 +17,7 @@ const { createPhoneRemote } = require('./phone');
 const firewall = require('./firewall');
 const gamescope = require('./gamescope');
 const apps = require('./apps');
+const { watchMedia } = require('./medialog');
 const { createJellyfin } = require('./jellyfin');
 const { createWatchmode } = require('./watchmode');
 const { createTrakt } = require('./trakt');
@@ -684,6 +685,8 @@ function openService(id, query) {
       openYouTube(ytTools.parseLink(target));
     }
   });
+  // With debug logging on, why a website's video won't play goes in the log ([media] lines).
+  if (log.debugOn) watchMedia(service.webContents, log, def.id || 'website');
   // YouTube's TV page: it only opens for TVs, and gets the extras you switched on.
   if (def.tvPage) service.webContents.setUserAgent(ytTools.TV_UA);
   // The Jellyfin web player: sign it in with our saved login, then show the title.
