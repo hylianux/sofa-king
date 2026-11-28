@@ -26,7 +26,12 @@ With **mpv** installed, titles play straight from your server: the original file
 
 A show plays as a playlist, so the next episode follows on.
 
-| Button | Does |
+Two ways to control it:
+
+- **Press any button** for **the menu** along the bottom (below).
+- **Hold L2 or R2** for **the trigger menu**: a panel with what's playing, how far in, and every button. While you hold it, the buttons do this:
+
+| Button (with L2 or R2 held) | Does |
 |---|---|
 | A | Pause / play |
 | B | Stop (press twice: the first press asks first) |
@@ -34,23 +39,23 @@ A show plays as a playlist, so the next episode follows on.
 | L1 / R1 | Previous / next episode |
 | X | Next subtitles |
 | Select | Next audio track |
-| Hold L2 or R2 | While held, ◀ ▶ go back / ahead 1 minute and ▲ ▼ change the volume (kept for whatever plays next). Press both together to lock this on (no holding needed); B, or both again, unlocks |
 | D-pad ◀ ▶ | Back 10 seconds / ahead 30 seconds (how far is up to you, see below) |
-| D-pad ▲ or Start | The menu (below) |
-| D-pad ▼ | Show the time and these buttons |
+| D-pad ▲ ▼ | Volume (kept for whatever plays next) |
 | L3 (press the left stick) | Speakers: Automatic, Stereo, 5.1 or 7.1 (the one you pick is kept for next time) |
 | R3 (press the right stick) | Music and radio: the next picture (cover or visualiser; see [Music](music.md#pictures-while-music-plays)) |
 
-**Forgot the buttons?** They show along the bottom when something starts playing, whenever you pause (until you carry on), and when you press ▼.
+Let go and the panel goes. **Trigger lock:** press L2 and R2 together, and the buttons keep working this way with nothing held and no panel in the way; press both again to go back.
 
-**The menu** (▲ or Start) runs along the bottom, with what's playing and how far in. **◀ ▶** choose, **A** picks, **B** closes it.
+**The menu** (any button, with nothing held) runs along the bottom, with what's playing and how far in. **◀ ▶** choose, **A** picks, **B** closes it.
+
+Both menus, and everything else the app draws over mpv, take their colours from your theme (Settings → Look), so they match the rest of the app.
 
 - **Playhead:** **◀ ▶** move a marker along the bar, faster the longer you hold, showing the time you'd land on. **A** jumps there; **B** leaves it where it was.
 - **Play / Pause, Skip intro, Previous, Next, Stop.**
 - **Subtitles, Audio, Speakers** (and **Picture** for music): a short list, the one in use marked. **▲ ▼** and **A** choose.
 - **QR codes:** the title's TMDB and IMDb pages, to open on your phone (an episode shows its show's pages).
 
-Change any of these in **Settings → Controller → In mpv**. The app reads the controller and tells mpv what to do, so this works the same with every mpv (Flathub's can't read a controller itself). If you'd rather mpv read it itself, switch off *The app's menu and hold buttons in mpv* there: you keep the buttons, but lose the menu and the hold buttons.
+Change any of these in **Settings → Controller → In mpv**. The app reads the controller and tells mpv what to do, so this works the same with every mpv (Flathub's can't read a controller itself). If you'd rather mpv read it itself, switch off *The app's menus in mpv* there: the buttons in the table then work straight away (no trigger needed), but there's no menu; they show along the bottom when something starts and while it's paused.
 
 **Playback options** (Settings → Servers): play the next episode automatically, skip intros and credits automatically (your server needs to have them marked, e.g. with Jellyfin's Intro Skipper plugin), ask before stopping, and ask "Are you still watching?" after a while.
 

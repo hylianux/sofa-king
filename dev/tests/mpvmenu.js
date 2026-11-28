@@ -1,6 +1,7 @@
 require('fs').mkdirSync(require('path').join(__dirname, 'out'), { recursive: true }); // (results, screenshots and test settings go in out/)
-// The controller in mpv, read by the app: holding L2 or R2 (◀ ▶ skip further, ▲ ▼ volume), both
-// together to lock, B to unlock; ▲ or Start opens the menu (playhead, subtitles list, QR codes).
+// The controller in mpv, read by the app: holding L2 or R2 is the trigger menu (the buttons do what
+// they're set to, ▲ ▼ volume), both together lock it; otherwise any button opens the menu
+// (playhead, subtitles list, QR codes).
 // Buttons saved before the menu make way for it. Needs mpv and ffmpeg (a test film, no sound).
 const path = require('path'); const fs = require('fs'); const { execFileSync } = require('child_process');
 const { app, BaseWindow, ipcMain } = require('electron');
@@ -18,6 +19,8 @@ process.env.JF_VIDEO_FILE = FILM;
 fs.writeFileSync(path.join(UD, 'config.json'), JSON.stringify({
   jellyfinServers: [{ id: 'srv-living-room', name: 'Living Room', url: 'http://localhost:8096', userId: 'user-1', userName: 'hylianux', token: 'tok-123' }],
   live: { iptvOrgAsked: true }, jellyfinPlayer: 'mpv', playback: { confirmStop: false },
+  // (--mood=<id>: to see the panels in another theme's colours.)
+  ...(process.argv.find((x) => x.startsWith('--mood=')) ? { look: { theme: process.argv.find((x) => x.startsWith('--mood=')).slice(7), custom: null } } : {}),
   // As saved before the menu: L2/R2 skipped a minute, ▲ ▼ volume, Start the time.
   mpvBindings: { pause: 0, stop: 1, subs: 2, skip: 3, prev: 4, next: 5, back60: 6, fwd60: 7, audio: 8, time: 9, sound: 10, visual: 11, volup: 12, voldown: 13, back10: 14, fwd30: 15 },
 }));
@@ -53,23 +56,27 @@ app.whenReady().then(async () => {
   await ask(['seek', 120, 'absolute+exact']); await wait(500);
   await ask(['set_property', 'volume', 50]);
 
-  // Holding L2: ▶ skips a minute, ▲ turns it up.
+  // Holding L2: the trigger menu. ▶ goes ahead 30 s (as set), ▲ turns it up. Let go: ▶ only
+  // brings up the menu (nothing skips), and B closes it.
   let p0 = await pos();
-  await pad(L2); await shot('hold');
+  await pad(L2, 'down', 700); await shot('trigger');
   await tap(RIGHT, 600); const p1 = await pos();
   await tap(UP); const v1 = await ask(['get_property', 'volume']);
-  await pad(L2, 'up');
-  await tap(RIGHT, 600); const p2 = await pos();
-  say(`holding L2: ▶ ${p0}→${p1}, ▲ volume 50→${v1}; let go, ▶ ${p1}→${p2}`, p1 - p0 === 60 && v1 === 55 && p2 - p1 === 30 ? 'PASS' : 'FAIL');
+  await pad(L2, 'up', 500);
+  await tap(RIGHT, 600); const p2 = await pos(); await shot('plain');
+  await tap(B, 400);
+  say(`holding L2: ▶ ${p0}→${p1}, ▲ volume 50→${v1}; let go, ▶ ${p1}→${p2} (menu instead)`, p1 - p0 === 30 && v1 === 55 && p2 === p1 ? 'PASS' : 'FAIL');
 
-  // Both together: locked. ◀ goes back a minute with nothing held; B unlocks (and doesn't stop).
-  await pad(L2, 'down', 40); await pad(R2, 'down', 40); await pad(L2, 'up', 40); await pad(R2, 'up', 400);
+  // Both together: the trigger lock. With nothing held: ◀ goes back 10 s, ▼ turns it down, A pauses.
+  // Both again: back to normal (◀ then only brings up the menu).
+  await pad(L2, 'down', 40); await pad(R2, 'down', 40); await pad(L2, 'up', 40); await pad(R2, 'up', 600);
   p0 = await pos(); await tap(LEFT, 600); const p3 = await pos();
   await tap(DOWN); const v2 = await ask(['get_property', 'volume']);
   await shot('locked');
-  await tap(B, 600); const still = await ask(['get_property', 'time-pos']) != null;
-  await tap(LEFT, 600); const p4 = await pos();
-  say(`locked: ◀ ${p0}→${p3}, ▼ volume →${v2}; B: still playing ${still}, ◀ ${p3}→${p4}`, p0 - p3 === 60 && v2 === 50 && still && p3 - p4 === 10 ? 'PASS' : 'FAIL');
+  const pz = await ask(['get_property', 'pause']); await tap(A, 500); const pz2 = await ask(['get_property', 'pause']); await tap(A, 500);
+  await pad(L2, 'down', 40); await pad(R2, 'down', 40); await pad(L2, 'up', 40); await pad(R2, 'up', 600);
+  await tap(LEFT, 600); const p4 = await pos(); await tap(B, 400);
+  say(`locked: ◀ ${p0}→${p3}, ▼ volume →${v2}, A: paused ${pz}→${pz2}; unlocked, ◀ ${p3}→${p4}`, p0 - p3 === 10 && v2 === 50 && pz !== pz2 && p4 >= p3 && p4 - p3 < 3 ? 'PASS' : 'FAIL');
 
   // The menu (▲): Playhead first. A, ▶ three times, A: half a minute on.
   await tap(UP, 500); await shot('menu');
@@ -93,15 +100,14 @@ app.whenReady().then(async () => {
   // QR codes (three further along): TMDB's page for this film.
   for (let i = 0; i < 3; i++) await tap(RIGHT, 120);
   await tap(A, 1500); await shot('qr');
-  // B: back to the menu; B again closes it; then A pauses / plays as usual.
+  // B: back to the menu; B again closes it. Then A (nothing held) only brings the menu back: it
+  // doesn't pause. Start opens it too, and closes it.
   await tap(B); await tap(B, 500);
   const paused0 = await ask(['get_property', 'pause']);
-  await tap(A, 500); const paused1 = await ask(['get_property', 'pause']);
-  say(`menu closed, A pauses / plays: ${paused0} → ${paused1}`, paused0 !== paused1 ? 'PASS' : 'FAIL');
-  // Start opens it too; Start again closes it.
+  await tap(A, 500); await shot('a-plain'); const paused1 = await ask(['get_property', 'pause']); await tap(B, 400);
   await tap(START, 400); await shot('start'); await tap(START, 400);
-  await tap(A, 500);
-  say('after Start twice, A still pauses / plays:', (await ask(['get_property', 'pause'])) === paused0 ? 'PASS' : 'FAIL');
+  await tap(A, 500); await tap(B, 400);
+  say(`menu closed, A brings it back without pausing: ${paused0} → ${paused1}, after Start twice: ${await ask(['get_property', 'pause'])}`, paused0 === paused1 && (await ask(['get_property', 'pause'])) === paused0 ? 'PASS' : 'FAIL');
   await ask(['quit']); await wait(1500);
   // The volume carries over to the next thing played.
   const vol = JSON.parse(fs.readFileSync(path.join(UD, 'config.json'), 'utf8')).mpvVolume;

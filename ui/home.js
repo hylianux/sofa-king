@@ -2202,8 +2202,9 @@ function renderSeekSteps() {
       if (next !== secs) setPlayback({ seek: { [action]: next } });
     };
     const holds = [mpvBindings.meta, mpvBindings.meta2].filter((x) => x != null).map((x) => tvButtons.nameOf(x)).join('/');
-    const key = mpvBindings[action] != null ? tvButtons.nameOf(mpvBindings[action])
-      : (action === 'back60' || action === 'fwd60') && holds && playback.appPad ? `Hold ${holds} + ${action === 'back60' ? '◀' : '▶'}` : 'No button';
+    // (With the app reading the controller, these work in the trigger menu: L2 or R2 held.)
+    const key = mpvBindings[action] == null ? 'No button'
+      : holds && playback.appPad ? `Hold ${holds} + ${tvButtons.nameOf(mpvBindings[action])}` : tvButtons.nameOf(mpvBindings[action]);
     const less = el('button', { class: 'pill', nav: true, textContent: '−', 'aria-label': 'Less', onclick: () => step(-1) });
     const more = el('button', { class: 'pill', nav: true, textContent: '+', 'aria-label': 'More', onclick: () => step(1) });
     less.dataset.seek = `${action}-less`; more.dataset.seek = `${action}-more`;
@@ -2289,7 +2290,7 @@ const MPV_ACTIONS = [
   ['volup', 'Volume up'], ['voldown', 'Volume down'], ['sound', 'Speakers: automatic, stereo, 5.1, 7.1'], ['visual', 'Music and radio: the next picture'],
   ['time', 'Show the time and the buttons'],
   ['menu', 'Open the menu'], ['menu2', 'Open the menu (another button)'],
-  ['meta', 'Hold: ◀ ▶ skip further, ▲ ▼ volume'], ['meta2', 'Hold: the same (another button)'],
+  ['meta', 'Trigger menu: hold for these buttons (▲ ▼ volume); both together lock it'], ['meta2', 'Trigger menu (another button)'],
 ];
 const mpvName = Object.fromEntries(MPV_ACTIONS);
 let mpvBindings = {};

@@ -2402,8 +2402,9 @@ const BUTTON_NAMES = {
 };
 const buttonName = (i) => (i == null ? '—' : BUTTON_NAMES[i] || `Button ${i}`);
 
-// The panel of buttons mpv shows (when it starts, while paused, and on the time button), for
-// what's playing: 'video' (films and shows), 'song', 'station' or 'live'.
+// The panel of buttons mpv shows, for what's playing: 'video' (films and shows), 'song', 'station'
+// or 'live'. When the app reads the controller, that's the trigger menu (while L2 or R2 is held);
+// otherwise mpv's own panel (when it starts, while paused, and on the time button).
 function mpvHelp(kind = 'video') {
   const b = CONFIG.mpvBindings;
   const keys = (...actions) => (actions.every((a) => b[a] != null) ? actions.map((a) => buttonName(b[a])) : null);
@@ -2419,21 +2420,26 @@ function mpvHelp(kind = 'video') {
   const pair = (a, b) => (sk[a] === sk[b] ? `Back / ahead ${len(sk[a])}` : `Back ${len(sk[a])} / ahead ${len(sk[b])}`);
   if (kind === 'video' || kind === 'song') add(pair('back10', 'fwd30'), 'back10', 'fwd30');
   if (kind === 'video') add(pair('back60', 'fwd60'), 'back60', 'fwd60');
-  if (CONFIG.playback.appPad) {
-    const hold = [b.meta, b.meta2].filter((x) => x != null).map(buttonName);
-    if (hold.length) items.push({ keys: [hold.join('/')], label: kind === 'video' || kind === 'song' ? 'Hold: skip, volume' : 'Hold: volume' });
-    const menu = [b.menu, b.menu2].filter((x) => x != null).map(buttonName);
-    if (menu.length) items.push({ keys: menu, label: 'Menu' });
-  }
   if (kind === 'video' || kind === 'live') add('Subtitles', 'subs');
   if (kind === 'video' || kind === 'live') add('Audio track', 'audio');
   add('Volume', 'volup', 'voldown');
+  if (CONFIG.playback.appPad) {
+    // In the trigger menu, ▲ and ▼ change the volume (unless they're set to something else).
+    const free = (btn) => !Object.keys(b).some((a) => b[a] === btn && !['menu', 'menu2', 'time'].includes(a));
+    if (b.volup == null && free(12) && free(13)) items.push({ keys: ['▲', '▼'], label: 'Volume' });
+    if (b.time != null && b.time !== 12 && b.time !== 13) add('Show the time', 'time');
+  }
   add('Speakers', 'sound');
   if (kind === 'song' || kind === 'station') add('Picture', 'visual');
   add('Stop', 'stop');
   return items;
 }
+const triggerNames = () => [CONFIG.mpvBindings.meta, CONFIG.mpvBindings.meta2].filter((x) => x != null).map(buttonName);
 function mpvHelpFooter() {
+  if (CONFIG.playback.appPad) {
+    const t = triggerNames();
+    return t.length === 2 ? `Let go to hide · press ${t[0]} + ${t[1]} together to lock the buttons on` : 'Let go to hide';
+  }
   const t = CONFIG.mpvBindings.time;
   return t == null ? 'Pause to see these again' : `Pause, or press ${buttonName(t)}, to see these again`;
 }
@@ -2448,6 +2454,10 @@ const mpvCommon = () => ({
     saveUserConfig({ mpvVolume: v });
   },
   helpFooter: mpvHelpFooter(),
+  // The theme's colours, for the menus and panels drawn on mpv's screen.
+  colors: (() => { const l = currentLook(); const c = { ...themes.scheme(l.colors).colors }; if (l.accent) c.accent = l.accent; return c; })(),
+  // (Shown once when something starts, when the app reads the controller.)
+  padHint: triggerNames().length ? ['Press any button for the menu', `Hold ${triggerNames().join(' or ')} for every control`] : ['Press any button for the menu'],
   seeks: CONFIG.playback.seek,
   sound: CONFIG.mpvSound,
   motion: CONFIG.motion,

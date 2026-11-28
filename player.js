@@ -91,7 +91,7 @@ function sharedDir(via) {
   return dir;
 }
 
-const { escapeAss, roundRect, alpha, capWidth } = require('./osd');
+const { escapeAss, roundRect, alpha, capWidth, C, setColors, panel, scrim } = require('./osd');
 
 // ------------------------------------------------------------------ the buttons along the bottom
 //
@@ -108,19 +108,60 @@ function helpPanel(items, footer, k) {
   const h = 26 + rows * LINE + (footer ? 34 : 6);
   const x0 = (1280 - w) / 2;
   const y0 = 720 - 34 - h + Math.round((1 - k) * 10); // (rises a little as it fades in)
-  const out = [`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H1E1814&\\1a${alpha(0x28, k)}\\p1}${roundRect(x0, y0, w, h, 18)}{\\p0}`];
+  const out = [panel(x0, y0, w, h, 18, k, 0x28)];
   items.forEach((it, i) => {
     let x = x0 + 22 + (i % COLS) * CELL;
     const y = y0 + 22 + Math.floor(i / COLS) * LINE + 15;
     for (const key of it.keys) {
       const cw = capWidth(key);
-      out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&HF2EEEC&\\1a${alpha(0x00, k)}\\p1}${roundRect(x, y - 15, cw, 30, 8)}{\\p0}`);
-      out.push(`{\\an5\\pos(${Math.round(x + cw / 2)},${y})\\bord0\\shad0\\fs18\\b1\\1c&H1C1614&\\alpha${alpha(0x00, k)}}${escapeAss(key)}`);
+      out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.text}&\\1a${alpha(0x00, k)}\\p1}${roundRect(x, y - 15, cw, 30, 8)}{\\p0}`);
+      out.push(`{\\an5\\pos(${Math.round(x + cw / 2)},${y})\\bord0\\shad0\\fs18\\b1\\1c&H${C.bg}&\\alpha${alpha(0x00, k)}}${escapeAss(key)}`);
       x += cw + 6;
     }
-    out.push(`{\\an4\\pos(${Math.round(x + 6)},${y})\\bord0\\shad0\\fs21\\1c&HFFFFFF&\\alpha${alpha(0x00, k)}}${escapeAss(it.label)}`);
+    out.push(`{\\an4\\pos(${Math.round(x + 6)},${y})\\bord0\\shad0\\fs21\\1c&H${C.text}&\\alpha${alpha(0x00, k)}}${escapeAss(it.label)}`);
   });
-  if (footer) out.push(`{\\an5\\pos(640,${y0 + h - 22})\\bord0\\shad0\\fs17\\1c&HBEB0AA&\\alpha${alpha(0x00, k)}}${escapeAss(footer)}`);
+  if (footer) out.push(`{\\an5\\pos(640,${y0 + h - 22})\\bord0\\shad0\\fs17\\1c&H${C.muted}&\\alpha${alpha(0x00, k)}}${escapeAss(footer)}`);
+  return out.join('\n');
+}
+
+// The trigger menu (while L2 or R2 is held): what's playing and how far in, then every button as a
+// keycap with what it does, and how to lock it. Sits on a soft shadow, with a thin line of light
+// along its top edge. info: { title, position, duration }.
+function triggerPanel(items, footer, info, k) {
+  const COLS = 4;
+  const CELL = 272;
+  const LINE = 46;
+  const rows = Math.ceil(items.length / COLS);
+  const w = CELL * COLS + 40;
+  const head = 64;
+  const h = head + 14 + rows * LINE + (footer ? 38 : 10);
+  const x0 = (1280 - w) / 2;
+  const y0 = 720 - 34 - h + Math.round((1 - k) * 14); // (rises a little as it fades in)
+  const clock = (t) => { t = Math.max(0, Math.round(t || 0)); const hh = Math.floor(t / 3600); const m = Math.floor((t % 3600) / 60); const x = t % 60; return hh ? `${hh}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+  const out = [scrim(y0 - 90, k), panel(x0, y0, w, h, 20, k, 0x18)];
+  // What's playing, the time, and a thin progress line.
+  out.push(`{\\an4\\pos(${x0 + 24},${y0 + 28})\\bord0\\shad0\\fs22\\b1\\1c&H${C.text}&\\alpha${alpha(0x00, k)}}${escapeAss(String(info.title || '').slice(0, 64))}`);
+  if (info.duration > 0) {
+    out.push(`{\\an6\\pos(${x0 + w - 24},${y0 + 28})\\bord0\\shad0\\fs19\\1c&H${C.muted}&\\alpha${alpha(0x00, k)}}${clock(info.position)} / ${clock(info.duration)}`);
+    const bx = x0 + 24; const bw = w - 48; const by = y0 + 50; const f = Math.max(0, Math.min(1, (info.position || 0) / info.duration));
+    out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.line}&\\1a${alpha(0x00, k)}\\p1}${roundRect(bx, by, bw, 4, 2)}{\\p0}`);
+    out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.accent}&\\1a${alpha(0x00, k)}\\p1}${roundRect(bx, by, Math.max(4, bw * f), 4, 2)}{\\p0}`);
+  }
+  out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.text}&\\1a${alpha(0xE6, k)}\\p1}${roundRect(x0 + 20, y0 + head, w - 40, 1, 0)}{\\p0}`);
+  items.forEach((it, i) => {
+    let x = x0 + 22 + (i % COLS) * CELL;
+    const y = y0 + head + 14 + Math.floor(i / COLS) * LINE + 15;
+    for (const key of it.keys) {
+      const cw = capWidth(key);
+      // A keycap: a darker edge under a light top, so it looks pressable.
+      out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.muted}&\\1a${alpha(0x00, k)}\\p1}${roundRect(x, y - 14, cw, 31, 8)}{\\p0}`);
+      out.push(`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H${C.text}&\\1a${alpha(0x00, k)}\\p1}${roundRect(x, y - 15, cw, 28, 8)}{\\p0}`);
+      out.push(`{\\an5\\pos(${Math.round(x + cw / 2)},${y - 1})\\bord0\\shad0\\fs18\\b1\\1c&H${C.bg}&\\alpha${alpha(0x00, k)}}${escapeAss(key)}`);
+      x += cw + 6;
+    }
+    out.push(`{\\an4\\pos(${Math.round(x + 6)},${y})\\bord0\\shad0\\fs21\\1c&H${C.text}&\\alpha${alpha(0x00, k)}}${escapeAss(it.label)}`);
+  });
+  if (footer) out.push(`{\\an5\\pos(640,${y0 + h - 22})\\bord0\\shad0\\fs17\\1c&H${C.muted}&\\alpha${alpha(0x00, k)}}${escapeAss(footer)}`);
   return out.join('\n');
 }
 
@@ -131,8 +172,8 @@ function toastPanel(lines, k) {
   const h = 30 + lines.length * 30;
   const x0 = (1280 - w) / 2;
   const y0 = 40 - Math.round((1 - k) * 10);
-  const out = [`{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H1E1814&\\1a${alpha(0x28, k)}\\p1}${roundRect(x0, y0, w, h, 18)}{\\p0}`];
-  lines.forEach((l, i) => out.push(`{\\an5\\pos(640,${y0 + 30 + i * 30})\\bord0\\shad0\\fs${i ? 18 : 24}${i ? '' : '\\b1'}\\1c&H${i ? 'BEB0AA' : 'FFFFFF'}&\\alpha${alpha(0x00, k)}}${escapeAss(l)}`));
+  const out = [panel(x0, y0, w, h, 18, k, 0x28)];
+  lines.forEach((l, i) => out.push(`{\\an5\\pos(640,${y0 + 30 + i * 30})\\bord0\\shad0\\fs${i ? 18 : 24}${i ? '' : '\\b1'}\\1c&H${i ? C.muted : C.text}&\\alpha${alpha(0x00, k)}}${escapeAss(l)}`));
   return out.join('\n');
 }
 
@@ -219,7 +260,8 @@ function connect(socketPath, onMessage, watch = []) {
 // volume: mpv's volume to start at (0–130; null: mpv's own). onVolume(v): it changed (to keep).
 // visual: for music and radio, the picture to show (visuals.js: 'cover', 'bars', … 'off'); null
 // for films. cover(index): a promise of the cover picture's path on disk for that entry, or null.
-function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help = [], helpFooter = '', sound = 'auto-safe', motion = true, seeks, rewindOnResume = false, visual = null, cover, kind = 'video', links, appPad = true, volume = null, onVolume, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, onPadless, onSound, onVisual, loadingText, logFile, log }) {
+function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token', screenArgs = [], bindings, help = [], helpFooter = '', sound = 'auto-safe', motion = true, seeks, rewindOnResume = false, visual = null, cover, kind = 'video', links, appPad = true, padHint = null, colors = null, volume = null, onVolume, autoplay, onFileStart, onFileEnd, onState, onMessage, onExit, onPlaying, onMetadata, onPadless, onSound, onVisual, loadingText, logFile, log }) {
+  setColors(colors); // (the theme's colours for the panels: Settings → Look)
   const dir = sharedDir(how.via);
   const id = `tv-overlay-${process.pid}-${Date.now()}`;
   const socketPath = path.join(dir, `${id}.sock`);
@@ -269,7 +311,8 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
         state.paused = Boolean(msg.data);
         // Paused: the buttons show (and stay until you carry on), so they're easy to look up.
         if (controls) controls.refresh();
-        if (state.paused && !was && loadedOnce && (!controls || controls.mode === 'normal')) showHelp(0);
+        // (Not when the app reads the controller: there the trigger menu shows the buttons.)
+        if (state.paused && !was && loadedOnce && !controls) showHelp(0);
         else if (!state.paused && was) {
           hideHelp();
           // (A second back, so you don't miss the words you paused on.)
@@ -314,7 +357,8 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
       // The stream is open: pictures are about to appear.
       stopLoading();
       // The first time, the buttons show for a few seconds.
-      if (!loadedOnce) { loadedOnce = true; showHelp(HELP_MS); }
+      // (When the app reads the controller, a short note on how to get at everything instead.)
+      if (!loadedOnce) { loadedOnce = true; if (controls) { if (padHint) showPanel(TOAST_ID, (k) => toastPanel(padHint, k), 5000); } else showHelp(HELP_MS); }
       visualLoaded(current);
       if (current != null && onPlaying) onPlaying(current);
     }
@@ -334,7 +378,8 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     let frame = 0;
     const tick = () => {
       // Three dots, one lit at a time, big and centred, with what's loading underneath.
-      const dots = [0, 1, 2].map((d) => `{\\alpha&H${d === frame % 3 ? '00' : 'B0'}&}●`).join('  ');
+      // (In the theme's accent colour; the lit one glows.)
+      const dots = [0, 1, 2].map((d) => (d === frame % 3 ? `{\\alpha&H00&\\1c&H${C.accent}&\\bord3\\3c&H${C.accent}&\\3a&HA0&\\blur4}●` : `{\\alpha&HB0&\\1c&H${C.text}&\\bord0\\blur0}●`)).join('{\\bord0}  ');
       ipc.send({
         name: 'osd-overlay', id: OVERLAY_ID, format: 'ass-events', res_x: 1280, res_y: 720,
         data: `{\\an5}{\\fs56}{\\bord0}{\\shad0}${dots}{\\alpha&H00&}\\N{\\fs30}${escapeAss(text)}`,
@@ -390,6 +435,16 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     showPanel(HELP_ID, (k) => helpPanel(help, helpFooter, k), ms);
   }
   function hideHelp() { hidePanel(HELP_ID); }
+  // The trigger menu: the same place as the button panel, kept up to date while it's showing.
+  let triggerTick = null;
+  function showTrigger(on) {
+    clearInterval(triggerTick); triggerTick = null;
+    if (!on) { hidePanel(HELP_ID); return; }
+    hidePanel(TOAST_ID);
+    const draw = () => showPanel(HELP_ID, (k) => triggerPanel(help, helpFooter, { title: state.title, position: state.position, duration: kind === 'live' || kind === 'station' ? 0 : state.duration }, k), 0);
+    draw();
+    triggerTick = setInterval(draw, 1000);
+  }
 
   // ---- speakers: the sound button steps through automatic, stereo, 5.1 and 7.1
   let soundNow = SOUND_CHOICES.some((c) => c.value === sound) ? sound : 'auto-safe';
@@ -503,6 +558,9 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     setVisual,
     links: links ? () => links(current != null ? current : state.index) : null,
     hideHelp,
+    showTrigger,
+    motion,
+    toast: (lines) => showPanel(TOAST_ID, (k) => toastPanel(lines, k), 3000),
     title: () => state.title || '',
   }) : null;
 
@@ -555,6 +613,7 @@ function play({ how, entries, startIndex = 0, token, tokenHeader = 'X-Emby-Token
     clearInterval(spin);
     for (const p of panels.values()) { clearInterval(p.anim); clearTimeout(p.hide); }
     if (controls) controls.stop();
+    clearInterval(triggerTick);
     if (current != null) onFileEnd(current, 'quit', state.position, state.duration);
     current = null;
     ipc.close();

@@ -128,18 +128,18 @@ app.whenReady().then(async () => {
   // Settings: skip lengths.
   await js("openSettings({ tab: 'jellyfin' }); 0"); await wait(800);
   say('skip lines:', await js("[...document.querySelectorAll('#pb-seek .stepper')].map((s) => s.textContent.replace(/[−+]/g, ' ').replace(/\\s+/g, ' ').trim()).join(' / ')"));
-  await js("document.querySelector('[data-seek=\"back60-less\"]').click(); 0"); await wait(500);
-  await js("document.querySelector('[data-seek=\"back60-less\"]').click(); 0"); await wait(500);
-  await js("document.querySelector('[data-seek=\"fwd60-less\"]').click(); 0"); await wait(500);
+  await js("document.querySelector('[data-seek=\"back10-more\"]').click(); 0"); await wait(500);
+  await js("document.querySelector('[data-seek=\"back10-more\"]').click(); 0"); await wait(500);
+  await js("document.querySelector('[data-seek=\"fwd30-more\"]').click(); 0"); await wait(500);
   const saved = JSON.parse(fs.readFileSync(path.join(UD, 'config.json'), 'utf8')).playback.seek;
-  say('saved:', JSON.stringify(saved), saved.back60 === 30 && saved.fwd60 === 45 ? 'PASS' : 'FAIL');
-  await js("document.querySelector('[data-seek=\"back60-more\"]').focus(); 0"); await wait(600);
+  say('saved:', JSON.stringify(saved), saved.back10 === 20 && saved.fwd30 === 45 ? 'PASS' : 'FAIL');
+  await js("document.querySelector('[data-seek=\"back10-more\"]').focus(); 0"); await wait(600);
   await shot('settings');
 
   // mpv: the buttons do what was set, and after a pause it carries on a second earlier.
   say('play:', JSON.stringify(await js("tv.jfPlay('srv-living-room', 'item-other', 'Movie', 'Arrival', false)")));
   await wait(6000);
-  // (Holding L2 or R2 with ◀ ▶ uses the lengths set for them: see mpvmenu.js.)
+  // (Holding L2 or R2 (the trigger menu), ◀ ▶ use the lengths set for them: see mpvmenu.js.)
   await ask(['set_property', 'pause', true]); await ask(['seek', 60, 'absolute+exact']); await wait(500);
   const t0 = await ask(['get_property', 'time-pos']);
   const { ipcMain } = require('electron');
@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
   await wait(500); const t1 = await ask(['get_property', 'time-pos']);
   for (const [b, ph] of [[14, 'down'], [14, 'up'], [6, 'up']]) { ipcMain.emit('pad-raw', { sender: wc }, b, ph); await wait(150); }
   await wait(500); const t2 = await ask(['get_property', 'time-pos']);
-  say(`hold L2 + ▶: ${Math.round(t0)} → ${Math.round(t1)}, + ◀: → ${Math.round(t2)}`, Math.round(t1 - t0) === 45 && Math.round(t1 - t2) === 30 ? 'PASS' : 'FAIL');
+  say(`hold L2 + ▶: ${Math.round(t0)} → ${Math.round(t1)}, + ◀: → ${Math.round(t2)}`, Math.round(t1 - t0) === 45 && Math.round(t1 - t2) === 20 ? 'PASS' : 'FAIL');
   await ask(['set_property', 'pause', false]); await wait(800);
   await ask(['set_property', 'pause', true]); await wait(1000);
   const p0 = await ask(['get_property', 'time-pos']);
